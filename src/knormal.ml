@@ -20,6 +20,24 @@ and 'a fundef = {f: var; args: var list; body: 'a u; info: 'a}
 
 type t = debug u [@@deriving show]
 
+let erase var = List.filter (fun x -> x.name <> var.name)
+
+let erase_list vars l = List.fold_left (fun acc var -> erase var acc) l vars
+
+let rec fv = function
+  | Const _ -> []
+  | Op (_, vars, _) -> vars
+  | If (_, x, y, e1, e2, d) -> x :: y :: (fv e1 @ fv e2)
+  | Var (x, d) -> [x]
+  | App (f, args, d) -> f :: args
+  | Tuple (ts, d) -> ts
+  | Let (var, e0, e1, d) -> fv e0 @ erase var (fv e1)
+  | LetRec (fundef, e1, d) ->
+      erase fundef.f (erase_list fundef.args (fv fundef.body) @ fv e1)
+  | LetTuple (vars, var, e1, d) -> (var :: vars) @ erase_list vars (fv e1)
+
+let fundef_fv fundef = erase_list (fundef.f :: fundef.args) (fv fundef.body)
+
 let get_debug e =
   match e with
   | Const (_, d)
@@ -48,7 +66,6 @@ let rec list_to_let (es: (t * ty) list) knormalize =
         match e with
         | Var (e, d) -> (e, None)
         | _ ->
-            let d = get_debug e in
             let alpha = {name= Syntax.genvar (); debug= get_debug e; ty} in
             (alpha, Some e) )
       es
