@@ -50,6 +50,11 @@ let rec occur a t =
   | TyVar b -> if a = b then true else false
   | TyArray c -> occur a c
 
+let same_len l1 l2 eq =
+  if List.length l1 <> List.length l2 then
+    raise (UnifyError (show_type_equation eq, "should have same length"))
+  else ()
+
 let rec (ty_unify: type_equation list -> (int * Type.t) list) =
  fun equations ->
   match equations with
@@ -61,9 +66,11 @@ let rec (ty_unify: type_equation list -> (int * Type.t) list) =
         else
           compose (ty_unify (subst_equations a eq.right rest)) [(a, eq.right)]
     | TyFun (s, t), TyFun (s', t') ->
+        let _ = same_len s s' in
         let args = List.map2 (fun x y -> get_eq x y eq.debug) s s' in
         ty_unify (args @ [get_eq t t' eq.debug] @ rest)
     | TyTuple s, TyTuple s' ->
+        let _ = same_len s s' in
         let args = List.map2 (fun x y -> get_eq x y eq.debug) s s' in
         ty_unify (args @ rest)
     | TyBool, TyBool | TyUnit, TyUnit | TyFloat, TyFloat | TyInt, TyInt ->
