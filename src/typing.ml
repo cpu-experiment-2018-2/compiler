@@ -89,6 +89,7 @@ let rec (ty_unify: type_equation list -> (int * Type.t) list) =
 
 let builtin_function' =
   [ ("print_int", ([], [TyInt], TyUnit))
+  ; ("print_newline", ([], [TyUnit], TyUnit))
   ; ("print_char", ([], [TyInt], TyUnit))
   ; ("print_float", ([], [TyFloat], TyUnit))
   ; ("fless", ([], [TyFloat; TyFloat], TyBool))
