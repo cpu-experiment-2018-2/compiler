@@ -20,12 +20,15 @@ and 'a fundef = {f: var; args: var list; fv: var list; body: 'a u; info: 'a}
 
 type t = debug u [@@deriving show]
 
-let (toplevel: debug fundef list ref) = ref []
 
+
+let (toplevel: debug fundef list ref) = ref []
 let add_toplevel fundef = toplevel := fundef :: !toplevel
 
 let find_toplevel var = List.find_opt (fun x -> x.f.name = var.name) !toplevel
 
+let f =
+    let _ = toplevel := []  in
 let rec closure_conversion (e: Knormal.t) =
   match e with
   | Const (x, d) -> Const (x, d)
@@ -65,4 +68,5 @@ let rec closure_conversion (e: Knormal.t) =
   | LetTuple (names, name, e, d) ->
       LetTuple (names, name, closure_conversion e, d)
 
-let f = closure_conversion
+in
+    (fun x -> (closure_conversion x ,!toplevel))

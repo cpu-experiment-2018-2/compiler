@@ -34,6 +34,7 @@ let rec closure_to_virtual (e: Closure.t) =
   | Const (CUnit, d) -> Ans (Nop d)
   | Const (CInt x, d) -> Ans (Li (x, d))
   | Const (CFloat x, d) -> Ans (FLi (x, d))
+  | Const (CBool x, d) -> Ans (Li ((if x then 1 else 0),d))
   | Op (op, l, d) -> Ans (Op (op, l, d))
   | If (cmp, x, y, e1, e2, d) -> (
     match x.ty with
@@ -54,9 +55,9 @@ let rec closure_to_virtual (e: Closure.t) =
   | AppDir (var, ys, d) -> Ans (CallDir (var.name, ys, d))
   | _ ->
       failwith
-        "とりあえずクロージャなしの整数演算を実装する"
+        "it is not support"
 
-let f = closure_to_virtual
+let f (x,y) = closure_to_virtual x
 
 let rec function_to_virtual (fundef: debug Closure.fundef) =
   let body = closure_to_virtual fundef.body in

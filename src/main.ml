@@ -1,6 +1,5 @@
 let lexbuf outchan l =
   let p = Parser.top_exp Lexer.token l in
-  let _ = print_string (Syntax.show p) in
   let _ = print_newline () in
   let _ = print_string "parse succeed\n" in
   let p = Typing.f p in
