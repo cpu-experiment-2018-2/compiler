@@ -5,7 +5,7 @@ let conv (env: (string * string) list) (var: var) =
   | Some (a, b) -> {var with name= b}
   | None -> var
 
-let add env var = (var.name, Syntax.genvar ()) :: env
+let add env var = (var.name, Syntax.genvar () ^ "." ^ var.name) :: env
 
 let rec adds env li =
   match li with [] -> env | x :: xs -> adds (add env x) xs

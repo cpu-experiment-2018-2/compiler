@@ -10,6 +10,8 @@ let lexbuf outchan l =
   let p = Alpha.f p in
   let _ = print_string "alpha conversion\n" in
   let p = Closure.f p in
-  print_string (Closure.show p)
+  let _ = print_string "closure conversion succeed\n" in
+  let p = Virtual.f p in
+  print_string (Virtual.show p)
 
 let _ = lexbuf stdout (Lexing.from_channel stdin)

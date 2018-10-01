@@ -62,6 +62,8 @@ rule token = parse
     { GREATER }
 | "if"
     { IF }
+| "Array.create" | "Array.make"
+    { IDENT("create_array") }
 | "then"
     { THEN }
 | "else"

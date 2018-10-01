@@ -13,6 +13,10 @@ type pos = {line: int; col: int; bol: int} [@@deriving show]
 
 type def = Global | Source of pos [@@deriving show]
 
+let pos_to_str = function
+  | Global -> "Global"
+  | Source x -> "at line " ^ string_of_int x.line
+
 type debug = {pos: def} [@@deriving show]
 
 type var = {name: string; debug: debug; ty: ty} [@@deriving show]

@@ -57,8 +57,8 @@ let getdebug () =
 %nonassoc prec_tuple
 %left COMMA
 %left EQUAL LESS_GREATER LESS GREATER LESS_EQUAL GREATER_EQUAL
-%left PLUS MINUS AST SLASH PLUS_DOT MINUS_DOT
-%left AST_DOT SLASH_DOT
+%left PLUS MINUS PLUS_DOT MINUS_DOT
+%left AST SLASH AST_DOT SLASH_DOT
 %right prec_unary_minus
 %left prec_app
 %left DOT
@@ -98,6 +98,10 @@ exp:
     { match $2 with
     | Const(CFloat(f),_) -> Const(CFloat(-.f),getdebug())
     | e -> Op(Primitive(Neg),[e],getdebug())}
+| exp AST exp
+    { Op(Primitive(Mul), [$1; $3],getdebug())}
+| exp SLASH exp
+    { Op(Primitive(Div), [$1; $3],getdebug())}
 | exp PLUS exp 
     { Op(Primitive(Add), [$1; $3],getdebug())}
 | exp MINUS exp
@@ -126,15 +130,11 @@ exp:
     { Op(Primitive(FAdd), [$1; $3],getdebug())}
 | exp MINUS_DOT exp
     { Op(Primitive(FSub), [$1; $3],getdebug())}
-| exp AST exp
-    { Op(Primitive(Mul), [$1; $3],getdebug())}
 
 | exp AST_DOT exp
     { Op(Primitive(FMul), [$1; $3],getdebug())}
 | exp SLASH_DOT exp
     { Op(Primitive(FDiv), [$1; $3],getdebug())}
-| exp SLASH exp
-    { Op(Primitive(Div), [$1; $3],getdebug())}
 
 | LET id EQUAL exp IN exp
     %prec prec_let
