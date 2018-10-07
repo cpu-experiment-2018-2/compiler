@@ -34,6 +34,7 @@ type 'reg u =
   | BEQ of label * Syntax.debug
   | BLE of label * Syntax.debug
   | Jump of label * Syntax.debug
+  | JumpI of int * Syntax.debug
   | SetLabel of string * Syntax.debug
   | In of 'reg * Syntax.debug
   | Out of 'reg * Syntax.debug
@@ -49,6 +50,8 @@ type 'a program = 'a p * 'a p
 type var_program = Syntax.var program
 
 type t = int program
+
+let move v1 v2 d = Opi (Add, v1, v2, 0, d)
 
 let rec emit_var (e: var u) =
   match e with
@@ -131,6 +134,8 @@ let rec emit (e: int u) =
 let rec emit_program (global, main) =
   let _ = emit_routine main in
   let _ = emit_routine global in *)
+let lr = {name= "lr"; debug= tmp_debug; ty= TyInt}
+
 let rec conv (order: debug Virtual.u) var =
   match order with
   | Nop x -> [Nop x]
@@ -157,9 +162,12 @@ let rec conv (order: debug Virtual.u) var =
       :: ( match cmp with
          | EQ -> BEQ (sy ^ ".if.true", d)
          | LE -> BLE (sy ^ ".if.true", d) )
-      :: (p2 @ p1)
+      :: (p2 @ p1 @ [SetLabel (t, d)])
   | Var (x, d) -> (* move *)
                   [Opi (Add, var, x, 0, d)]
+  | CallDir (label, args, d) -> [Jump (label, d)]
+  | Out (reg, d) -> [Out (reg, d)]
+  | In (reg, d) -> [In (reg, d)]
   | _ -> failwith "yet implemented"
 
 and virtual_to_var e =
@@ -167,5 +175,15 @@ and virtual_to_var e =
   | Let (var, order, v) -> conv order var @ virtual_to_var v
   | Ans order ->
       let var = {name= Syntax.genvar (); debug= tmp_debug; ty= TyInt} in
-      let ret = {name= "ret"; debug= tmp_debug; ty= TyInt} in
-      conv order var @ [Opi (Add, ret, var, 0, tmp_debug)]
+      (* let ret = {name= "ret"; debug= tmp_debug; ty= TyInt} in *)
+      conv order var
+
+(* @ [Opi (Add, ret, var, 0, tmp_debug)] *)
+
+let emit_global () =
+  let lis =
+    List.map
+      (fun x -> SetLabel (x.label, tmp_debug) :: virtual_to_var x.body)
+      Virtual.globals
+  in
+  List.map (List.map emit_var) lis

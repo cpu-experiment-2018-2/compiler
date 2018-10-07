@@ -24,7 +24,10 @@ let (toplevel: debug fundef list ref) = ref []
 
 let add_toplevel fundef = toplevel := fundef :: !toplevel
 
-let find_toplevel var = List.find_opt (fun x -> x.f.name = var.name) !toplevel
+let find_toplevel var =
+  match List.find_opt (fun x -> x.f.name = var.name) !toplevel with
+  | None -> List.exists (fun x -> fst x = var.name) Typing.builtin_function'
+  | Some x -> true
 
 let f =
   let _ = toplevel := [] in
@@ -62,8 +65,8 @@ let f =
         (* alpha変換してる体で行く*)
         find_toplevel f
       with
-      | Some y -> AppDir (f, args, d)
-      | None -> AppCls (f, args, d) )
+      | true -> AppDir (f, args, d)
+      | false -> AppCls (f, args, d) )
     | Tuple (names, d) -> Tuple (names, d)
     | LetTuple (names, name, e, d) ->
         LetTuple (names, name, closure_conversion e, d)
