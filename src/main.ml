@@ -11,6 +11,10 @@ let lexbuf outchan l =
   let p = Closure.f p in
   let _ = print_string "closure conversion succeed\n" in
   let p = Virtual.f p in
-  print_string (Virtual.show p)
+  let _ = print_string (Virtual.show p) in
+  let p = Asm.virtual_to_var p in
+  let _ = print_string "\nmain:\n" in
+  let _ = List.iter Asm.emit_var p in
+  ()
 
 let _ = lexbuf stdout (Lexing.from_channel stdin)

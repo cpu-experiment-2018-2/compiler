@@ -1,6 +1,9 @@
-type reg = int
+open Syntax
+open Virtual
 
 type iop = Mul | Add | Sub | Div
+
+let tmp_debug = {pos= Global}
 
 let iop_to_str = function
   | Mul -> "mul"
@@ -19,29 +22,77 @@ let fop_to_str = function
 type label = string
 
 type 'reg u =
-  | Op of iop * reg * reg * reg * Syntax.debug
-  | Opi of iop * reg * reg * int * Syntax.debug
-  | FOp of fop * reg * reg * reg * Syntax.debug
-  | FOpi of fop * reg * reg * float * Syntax.debug
-  | Load of reg * reg * int * Syntax.debug
-  | Store of reg * reg * int * Syntax.debug
-  | Cmpd of reg * reg * Syntax.debug
+  | Nop of Syntax.debug
+  | Op of iop * 'reg * 'reg * 'reg * Syntax.debug
+  | Li of 'reg * int * Syntax.debug
+  | Opi of iop * 'reg * 'reg * int * Syntax.debug
+  | FOp of fop * 'reg * 'reg * 'reg * Syntax.debug
+  | FOpi of fop * 'reg * 'reg * float * Syntax.debug
+  | Load of 'reg * 'reg * int * Syntax.debug
+  | Store of 'reg * 'reg * int * Syntax.debug
+  | Cmpd of 'reg * 'reg * Syntax.debug
   | BEQ of label * Syntax.debug
   | BLE of label * Syntax.debug
   | Jump of label * Syntax.debug
-  | In of reg * Syntax.debug
-  | Out of reg * Syntax.debug
+  | SetLabel of string * Syntax.debug
+  | In of 'reg * Syntax.debug
+  | Out of 'reg * Syntax.debug
 
-type 'reg routine = label * reg u list
+type pro = var u list
 
-type 'a program = 'a routine list * 'a routine list
+type 'reg routine = label * 'reg u list
 
-type virtual_program = Syntax.var program
+type 'reg p = 'reg routine list
+
+type 'a program = 'a p * 'a p
+
+type var_program = Syntax.var program
 
 type t = int program
 
+let rec emit_var (e: var u) =
+  match e with
+  | Nop d -> Printf.printf "\tnop (* %s *)" (Syntax.pos_to_str d.pos)
+  | Li (reg, x, d) ->
+      Printf.printf "\tli %%r%s,%d (* %s *)\n" reg.name x
+        (Syntax.pos_to_str d.pos)
+  | Op (op, rt, ra, rb, d) ->
+      Printf.printf "\t%s %%r%s,%%r%s,%%r%s (* %s *)\n" (iop_to_str op) rt.name
+        ra.name rb.name (Syntax.pos_to_str d.pos)
+  | Opi (op, rt, ra, offset, d) ->
+      Printf.printf "\t%si %%r%s,%%r%s,%d (* %s *)\n" (iop_to_str op) rt.name
+        ra.name offset (Syntax.pos_to_str d.pos)
+  | FOp (op, rt, ra, rb, d) ->
+      Printf.printf "\t%s %%r%s,%%r%s,%%r%s (* %s *)\n" (fop_to_str op) rt.name
+        ra.name rb.name (Syntax.pos_to_str d.pos)
+  | FOpi (op, rt, ra, offset, d) -> failwith "not implemented fopi"
+  | SetLabel (label, d) ->
+      Printf.printf "%s : (* %s *)\n" label (Syntax.pos_to_str d.pos)
+  | Load (rt, rs, offset, d) ->
+      Printf.printf "\tload %%r%s,%%r%s,%d (* %s *)\n" rt.name rs.name offset
+        (Syntax.pos_to_str d.pos)
+  | Store (rt, rs, offset, d) ->
+      Printf.printf "\tstore %%r%s,%%r%s,%d (* %s *)\n" rt.name rs.name offset
+        (Syntax.pos_to_str d.pos)
+  | Cmpd (ra, rb, d) ->
+      Printf.printf "\tcmpd %%r%s,%%r%s(* %s *)\n" ra.name rb.name
+        (Syntax.pos_to_str d.pos)
+  | BEQ (label, d) ->
+      Printf.printf "\tbeq %s (* %s *)\n" label (Syntax.pos_to_str d.pos)
+  | BLE (label, d) ->
+      Printf.printf "\tble %s (* %s *)\n" label (Syntax.pos_to_str d.pos)
+  | Jump (label, d) ->
+      Printf.printf "\tjump %s (* %s *)\n" label (Syntax.pos_to_str d.pos)
+  | In (rt, d) ->
+      Printf.printf "\tin %%r%s (* %s *)\n" rt.name (Syntax.pos_to_str d.pos)
+  | Out (rt, d) ->
+      Printf.printf "\tout %%r%s (* %s *)\n" rt.name (Syntax.pos_to_str d.pos)
+
 let rec emit (e: int u) =
   match e with
+  | Nop d -> Printf.printf "\tnop (* %s *)" (Syntax.pos_to_str d.pos)
+  | Li (reg, x, d) ->
+      Printf.printf "\tli %%r%d,%d (* %s *)\n" reg x (Syntax.pos_to_str d.pos)
   | Op (op, rt, ra, rb, d) ->
       Printf.printf "\t%s %%r%d,%%r%d,%%r%d (* %s *)\n" (iop_to_str op) rt ra
         rb (Syntax.pos_to_str d.pos)
@@ -52,6 +103,8 @@ let rec emit (e: int u) =
       Printf.printf "\t%s %%r%d,%%r%d,%%r%d (* %s *)\n" (fop_to_str op) rt ra
         rb (Syntax.pos_to_str d.pos)
   | FOpi (op, rt, ra, offset, d) -> failwith "not implemented fopi"
+  | SetLabel (label, d) ->
+      Printf.printf "%s : (* %s *)\n" label (Syntax.pos_to_str d.pos)
   | Load (rt, rs, offset, d) ->
       Printf.printf "\tload %%r%d,%%r%d,%d (* %s *)\n" rt rs offset
         (Syntax.pos_to_str d.pos)
@@ -72,11 +125,47 @@ let rec emit (e: int u) =
   | Out (rt, d) ->
       Printf.printf "\tout %%r%d (* %s *)\n" rt (Syntax.pos_to_str d.pos)
 
-let rec emit_routine ((label, es): int routine) =
-  let _ = Printf.printf "%s:" label in
+(* let rec emit_routine ( es : pro) =
   List.iter (fun x -> emit x) es
 
 let rec emit_program (global, main) =
   let _ = emit_routine main in
-  let _ = emit_routine global in
-  ()
+  let _ = emit_routine global in *)
+let rec conv (order: debug Virtual.u) var =
+  match order with
+  | Nop x -> [Nop x]
+  | Li (x, d) -> [Li (var, x, d)]
+  | FLi (x, d) -> failwith "yet implemented fli"
+  | Op (Primitive Add, [x; y], d) -> [Op (Add, var, x, y, d)]
+  | Op (Primitive Sub, [x; y], d) -> [Op (Sub, var, x, y, d)]
+  | Op (Primitive Mul, [x; y], d) -> [Op (Mul, var, x, y, d)]
+  | Op (Primitive Div, [x; y], d) -> [Op (Div, var, x, y, d)]
+  | Op (Primitive FMul, [x; y], d) -> [Op (Mul, var, x, y, d)]
+  | Op (Primitive FAdd, [x; y], d) -> [Op (Add, var, x, y, d)]
+  | Op (Primitive FSub, [x; y], d) -> [Op (Sub, var, x, y, d)]
+  | Op (Primitive FDiv, [x; y], d) -> [Op (Div, var, x, y, d)]
+  | Load (t, s, d) -> [Load (t, s, 0, d)]
+  | Store (t, s, d) -> [Store (t, s, 0, d)]
+  | If (cmp, x, y, tr, fa, d) ->
+      let sy = Syntax.genvar () in
+      let t = Syntax.genvar () in
+      let p1 = SetLabel (sy ^ ".if.true", d) :: virtual_to_var tr in
+      let p2 =
+        (SetLabel (sy ^ ".if.false", d) :: virtual_to_var fa) @ [Jump (t, d)]
+      in
+      Cmpd (x, y, d)
+      :: ( match cmp with
+         | EQ -> BEQ (sy ^ ".if.true", d)
+         | LE -> BLE (sy ^ ".if.true", d) )
+      :: (p2 @ p1)
+  | Var (x, d) -> (* move *)
+                  [Opi (Add, var, x, 0, d)]
+  | _ -> failwith "yet implemented"
+
+and virtual_to_var e =
+  match e with
+  | Let (var, order, v) -> conv order var @ virtual_to_var v
+  | Ans order ->
+      let var = {name= Syntax.genvar (); debug= tmp_debug; ty= TyInt} in
+      let ret = {name= "ret"; debug= tmp_debug; ty= TyInt} in
+      conv order var @ [Opi (Add, ret, var, 0, tmp_debug)]
