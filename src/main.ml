@@ -12,14 +12,7 @@ let lexbuf outchan l =
   let _ = print_string "closure conversion succeed\n" in
   let p, func = Virtual.f p in
   let _ = print_string (Virtual.show p) in
-  let _ = print_string "\n\tjump main\n" in
-  let _ = Asm.emit_normal Virtual.globals in
-  let _ = Asm.emit_normal func in
-  let _ = print_string "main:\n" in
-  let p =
-    Asm.register_alloc_tmp (Asm.virtual_to_var p (func @ Virtual.globals))
-  in
-  let _ = List.iter Asm.emit p in
-  ()
+  let _ = Asm.asm_var_emit p func in
+  Asm.asm_emit p func stdout
 
 let _ = lexbuf stdout (Lexing.from_channel stdin)

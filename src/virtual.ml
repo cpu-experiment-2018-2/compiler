@@ -24,7 +24,7 @@ and 'a prog = (string * 'a v)
 
 type t = Syntax.debug v [@@deriving show]
 
-type fundef = {label: string; args: var list; body: debug v}
+type fundef = {label: string; args: var list; body: debug v; ret: var}
 
 let rec concat var e1 e2 =
   match e1 with
@@ -54,15 +54,25 @@ let rec closure_to_virtual' (e: Closure.t) =
   | AppDir (var, ys, d) -> Ans (CallDir (var.name, ys, d))
   | _ -> failwith "it is not support"
 
+let tmp_var () = {name= Syntax.genvar (); debug= {pos= Global}; ty= TyInt}
+
+let rec g_last_var = function
+  | Let (x, y, t) ->
+      let p, var = g_last_var t in
+      (Let (x, y, p), var)
+  | Ans (Var (x, t)) -> (Ans (Var (x, t)), x)
+  | Ans s ->
+      let x = tmp_var () in
+      (Let (x, s, Ans (Var (x, x.debug))), x)
+
 let rec function_to_virtual (fundef: debug Closure.fundef) =
   let _ = print_string (Closure.show fundef.body) in
   let body = closure_to_virtual' fundef.body in
-  {label= fundef.f.name; args= fundef.args; body}
+  let body, last_var = g_last_var body in
+  {label= fundef.f.name; args= fundef.args; body; ret= last_var}
 
 let f (x, y) = (closure_to_virtual' x, List.map function_to_virtual y)
 
-let tmp_var () = {name= Syntax.genvar (); debug= {pos= Global}; ty= TyInt}
-
 let globals =
   [ (let v = tmp_var () in
-     {label= "print_int"; args= [v]; body= Ans (Out (v, v.debug))}) ]
+     {label= "print_int"; args= [v]; body= Ans (Out (v, v.debug)); ret= v}) ]

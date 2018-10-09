@@ -92,43 +92,44 @@ let rec emit_var (e: var u) =
       Printf.printf "\tout %%r%s (* %s *)\n" rt.name (Syntax.pos_to_str d.pos)
   | BLR -> Printf.printf "\tblr\n"
 
-let rec emit (e: int u) =
+let rec emit oc (e: int u) =
   match e with
-  | Nop d -> Printf.printf "\tnop (* %s *)" (Syntax.pos_to_str d.pos)
+  | Nop d -> Printf.fprintf oc "\tnop (* %s *)" (Syntax.pos_to_str d.pos)
   | Li (reg, x, d) ->
-      Printf.printf "\tli %%r%d,%d (* %s *)\n" reg x (Syntax.pos_to_str d.pos)
+      Printf.fprintf oc "\tli %%r%d,%d (* %s *)\n" reg x
+        (Syntax.pos_to_str d.pos)
   | Op (op, rt, ra, rb, d) ->
-      Printf.printf "\t%s %%r%d,%%r%d,%%r%d (* %s *)\n" (iop_to_str op) rt ra
-        rb (Syntax.pos_to_str d.pos)
+      Printf.fprintf oc "\t%s %%r%d,%%r%d,%%r%d (* %s *)\n" (iop_to_str op) rt
+        ra rb (Syntax.pos_to_str d.pos)
   | Opi (op, rt, ra, offset, d) ->
-      Printf.printf "\t%si %%r%d,%%r%d,%d (* %s *)\n" (iop_to_str op) rt ra
+      Printf.fprintf oc "\t%si %%r%d,%%r%d,%d (* %s *)\n" (iop_to_str op) rt ra
         offset (Syntax.pos_to_str d.pos)
   | FOp (op, rt, ra, rb, d) ->
-      Printf.printf "\t%s %%r%d,%%r%d,%%r%d (* %s *)\n" (fop_to_str op) rt ra
-        rb (Syntax.pos_to_str d.pos)
+      Printf.fprintf oc "\t%s %%r%d,%%r%d,%%r%d (* %s *)\n" (fop_to_str op) rt
+        ra rb (Syntax.pos_to_str d.pos)
   | FOpi (op, rt, ra, offset, d) -> failwith "not implemented fopi"
   | SetLabel (label, d) ->
-      Printf.printf "%s : (* %s *)\n" label (Syntax.pos_to_str d.pos)
+      Printf.fprintf oc "%s : (* %s *)\n" label (Syntax.pos_to_str d.pos)
   | Load (rt, rs, offset, d) ->
-      Printf.printf "\tload %%r%d,%%r%d,%d (* %s *)\n" rt rs offset
+      Printf.fprintf oc "\tload %%r%d,%%r%d,%d (* %s *)\n" rt rs offset
         (Syntax.pos_to_str d.pos)
   | Store (rt, rs, offset, d) ->
-      Printf.printf "\tstore %%r%d,%%r%d,%d (* %s *)\n" rt rs offset
+      Printf.fprintf oc "\tstore %%r%d,%%r%d,%d (* %s *)\n" rt rs offset
         (Syntax.pos_to_str d.pos)
   | Cmpd (ra, rb, d) ->
-      Printf.printf "\tcmpd %%r%d,%%r%d(* %s *)\n" ra rb
+      Printf.fprintf oc "\tcmpd %%r%d,%%r%d(* %s *)\n" ra rb
         (Syntax.pos_to_str d.pos)
   | BEQ (label, d) ->
-      Printf.printf "\tbeq %s (* %s *)\n" label (Syntax.pos_to_str d.pos)
+      Printf.fprintf oc "\tbeq %s (* %s *)\n" label (Syntax.pos_to_str d.pos)
   | BLE (label, d) ->
-      Printf.printf "\tble %s (* %s *)\n" label (Syntax.pos_to_str d.pos)
+      Printf.fprintf oc "\tble %s (* %s *)\n" label (Syntax.pos_to_str d.pos)
   | Jump (label, d) ->
-      Printf.printf "\tjump %s (* %s *)\n" label (Syntax.pos_to_str d.pos)
+      Printf.fprintf oc "\tjump %s (* %s *)\n" label (Syntax.pos_to_str d.pos)
   | In (rt, d) ->
-      Printf.printf "\tin %%r%d (* %s *)\n" rt (Syntax.pos_to_str d.pos)
+      Printf.fprintf oc "\tin %%r%d (* %s *)\n" rt (Syntax.pos_to_str d.pos)
   | Out (rt, d) ->
-      Printf.printf "\tout %%r%d (* %s *)\n" rt (Syntax.pos_to_str d.pos)
-  | BLR -> Printf.printf "\tblr\n"
+      Printf.fprintf oc "\tout %%r%d (* %s *)\n" rt (Syntax.pos_to_str d.pos)
+  | BLR -> Printf.fprintf oc "\tblr\n"
 
 (* let rec emit_routine ( es : pro) =
   List.iter (fun x -> emit x) es
@@ -156,9 +157,11 @@ let rec conv (order: debug Virtual.u) var functions =
   | If (cmp, x, y, tr, fa, d) ->
       let sy = "label" ^ Syntax.genvar () in
       let t = "label" ^ Syntax.genvar () in
-      let p1 = SetLabel (sy ^ ".if.true", d) :: virtual_to_var tr functions in
+      let p1 =
+        SetLabel (sy ^ ".if.true", d) :: virtual_to_var tr functions var
+      in
       let p2 =
-        (SetLabel (sy ^ ".if.false", d) :: virtual_to_var fa functions)
+        (SetLabel (sy ^ ".if.false", d) :: virtual_to_var fa functions var)
         @ [Jump (t, d)]
       in
       Cmpd (x, y, d)
@@ -176,14 +179,13 @@ let rec conv (order: debug Virtual.u) var functions =
   | In (reg, d) -> [In (reg, d)]
   | _ -> failwith "yet implemented"
 
-and virtual_to_var e functions =
+and virtual_to_var e functions ret =
   match e with
   | Let (var, order, v) ->
-      conv order var functions @ virtual_to_var v functions
+      conv order var functions @ virtual_to_var v functions ret
   | Ans order ->
-      let var = {name= Syntax.genvar (); debug= tmp_debug; ty= TyInt} in
       (* let ret = {name= "ret"; debug= tmp_debug; ty= TyInt} in *)
-      conv order var functions
+      conv order ret functions
 
 let ( >>= ) (name, env) f = f (name, env)
 
@@ -229,19 +231,38 @@ let emit_functions functions =
   let lis =
     List.map
       (fun x ->
-        (SetLabel (x.label, tmp_debug) :: virtual_to_var x.body functions)
+        (SetLabel (x.label, tmp_debug) :: virtual_to_var x.body functions x.ret)
         @ [BLR] )
       functions
   in
   List.iter (List.iter emit_var) lis
 
-let emit_normal functions =
+let emit_normal functions oc =
   let lis =
     List.map
       (fun x ->
-        (SetLabel (x.label, tmp_debug) :: virtual_to_var x.body functions)
+        (SetLabel (x.label, tmp_debug) :: virtual_to_var x.body functions x.ret)
         @ [BLR] )
       functions
   in
   let lis = List.map register_alloc_tmp lis in
-  List.iter (List.iter emit) lis
+  List.iter (List.iter (emit oc)) lis
+
+let asm_var_emit p func =
+  let _ = print_string "\n\tjump main\n" in
+  let _ = emit_functions Virtual.globals in
+  let _ = emit_functions func in
+  let _ = print_string "main:\n" in
+  let p = virtual_to_var p (func @ Virtual.globals) (tmp_var ()) in
+  let _ = List.iter emit_var p in
+  print_string "\tend"
+
+let asm_emit p func oc =
+  let _ = print_string "\n\tjump main\n" in
+  let _ = emit_normal Virtual.globals oc in
+  let _ = emit_normal func oc in
+  let _ = print_string "main:\n" in
+  let var = {name= Syntax.genvar (); debug= tmp_debug; ty= TyInt} in
+  let p = register_alloc_tmp (virtual_to_var p (func @ Virtual.globals) var) in
+  let _ = List.iter (emit oc) p in
+  print_string "\tend"
