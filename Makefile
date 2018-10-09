@@ -3,6 +3,7 @@ OCB = ocamlbuild -use-ocamlfind -I src
 
 all:
 	$(OCB) main.native
+	mv main.native compile
 clean:
 	$(OCB) -clean
 
