@@ -31,8 +31,8 @@ let rec concat var e1 e2 =
   | Ans x -> Let (var, x, e2)
   | Let (y, t1, t2) -> Let (y, t1, concat var t2 e2)
 
-let rec closure_to_virtual' (e: Closure.t) toplevel =
-  let closure_to_virtual x = closure_to_virtual' x toplevel in
+let rec closure_to_virtual' (e: Closure.t) =
+  let closure_to_virtual x = closure_to_virtual' x in
   match e with
   | Const (CUnit, d) -> Ans (Nop d)
   | Const (CInt x, d) -> Ans (Li (x, d))
@@ -54,11 +54,12 @@ let rec closure_to_virtual' (e: Closure.t) toplevel =
   | AppDir (var, ys, d) -> Ans (CallDir (var.name, ys, d))
   | _ -> failwith "it is not support"
 
-let f (x, y) = closure_to_virtual' x y
-
-let rec function_to_virtual (fundef: debug Closure.fundef) toplevel =
-  let body = closure_to_virtual' fundef.body toplevel in
+let rec function_to_virtual (fundef: debug Closure.fundef) =
+  let _ = print_string (Closure.show fundef.body) in
+  let body = closure_to_virtual' fundef.body in
   {label= fundef.f.name; args= fundef.args; body}
+
+let f (x, y) = (closure_to_virtual' x, List.map function_to_virtual y)
 
 let tmp_var () = {name= Syntax.genvar (); debug= {pos= Global}; ty= TyInt}
 

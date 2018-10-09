@@ -34,10 +34,10 @@ type 'reg u =
   | BEQ of label * Syntax.debug
   | BLE of label * Syntax.debug
   | Jump of label * Syntax.debug
-  | JumpI of int * Syntax.debug
   | SetLabel of string * Syntax.debug
   | In of 'reg * Syntax.debug
   | Out of 'reg * Syntax.debug
+  | BLR
 
 type pro = var u list
 
@@ -90,6 +90,7 @@ let rec emit_var (e: var u) =
       Printf.printf "\tin %%r%s (* %s *)\n" rt.name (Syntax.pos_to_str d.pos)
   | Out (rt, d) ->
       Printf.printf "\tout %%r%s (* %s *)\n" rt.name (Syntax.pos_to_str d.pos)
+  | BLR -> Printf.printf "\tblr\n"
 
 let rec emit (e: int u) =
   match e with
@@ -127,6 +128,7 @@ let rec emit (e: int u) =
       Printf.printf "\tin %%r%d (* %s *)\n" rt (Syntax.pos_to_str d.pos)
   | Out (rt, d) ->
       Printf.printf "\tout %%r%d (* %s *)\n" rt (Syntax.pos_to_str d.pos)
+  | BLR -> Printf.printf "\tblr\n"
 
 (* let rec emit_routine ( es : pro) =
   List.iter (fun x -> emit x) es
@@ -136,7 +138,7 @@ let rec emit_program (global, main) =
   let _ = emit_routine global in *)
 let lr = {name= "lr"; debug= tmp_debug; ty= TyInt}
 
-let rec conv (order: debug Virtual.u) var =
+let rec conv (order: debug Virtual.u) var functions =
   match order with
   | Nop x -> [Nop x]
   | Li (x, d) -> [Li (var, x, d)]
@@ -152,11 +154,12 @@ let rec conv (order: debug Virtual.u) var =
   | Load (t, s, d) -> [Load (t, s, 0, d)]
   | Store (t, s, d) -> [Store (t, s, 0, d)]
   | If (cmp, x, y, tr, fa, d) ->
-      let sy = Syntax.genvar () in
-      let t = Syntax.genvar () in
-      let p1 = SetLabel (sy ^ ".if.true", d) :: virtual_to_var tr in
+      let sy = "label" ^ Syntax.genvar () in
+      let t = "label" ^ Syntax.genvar () in
+      let p1 = SetLabel (sy ^ ".if.true", d) :: virtual_to_var tr functions in
       let p2 =
-        (SetLabel (sy ^ ".if.false", d) :: virtual_to_var fa) @ [Jump (t, d)]
+        (SetLabel (sy ^ ".if.false", d) :: virtual_to_var fa functions)
+        @ [Jump (t, d)]
       in
       Cmpd (x, y, d)
       :: ( match cmp with
@@ -165,25 +168,80 @@ let rec conv (order: debug Virtual.u) var =
       :: (p2 @ p1 @ [SetLabel (t, d)])
   | Var (x, d) -> (* move *)
                   [Opi (Add, var, x, 0, d)]
-  | CallDir (label, args, d) -> [Jump (label, d)]
+  | CallDir (label, args, d) ->
+      let func = List.find (fun x -> x.label = label) functions in
+      let ops = List.map2 (fun x y -> Opi (Add, x, y, 0, d)) func.args args in
+      ops @ [Jump (label, d)]
   | Out (reg, d) -> [Out (reg, d)]
   | In (reg, d) -> [In (reg, d)]
   | _ -> failwith "yet implemented"
 
-and virtual_to_var e =
+and virtual_to_var e functions =
   match e with
-  | Let (var, order, v) -> conv order var @ virtual_to_var v
+  | Let (var, order, v) ->
+      conv order var functions @ virtual_to_var v functions
   | Ans order ->
       let var = {name= Syntax.genvar (); debug= tmp_debug; ty= TyInt} in
       (* let ret = {name= "ret"; debug= tmp_debug; ty= TyInt} in *)
-      conv order var
+      conv order var functions
 
-(* @ [Opi (Add, ret, var, 0, tmp_debug)] *)
+let ( >>= ) (name, env) f = f (name, env)
 
-let emit_global () =
+let register_alloc_tmp =
+  let r = ref [] in
+  let find_or =
+    let c = ref (-1) in
+    fun name ->
+      match List.find_opt (fun (x, y) -> x = name.name) !r with
+      | Some (x, y) -> y
+      | None ->
+          c := !c + 1 ;
+          r := (name.name, !c) :: !r ;
+          !c
+  in
+  let rec f l =
+    match l with
+    | [] -> []
+    | x :: y ->
+        ( match x with
+        | Op (op, a, b, c, d) -> Op (op, find_or a, find_or b, find_or c, d)
+        | Opi (op, a, b, n, d) -> Opi (op, find_or a, find_or b, n, d)
+        | FOp (op, a, b, c, d) -> FOp (op, find_or a, find_or b, find_or c, d)
+        | FOpi (op, a, b, n, d) -> FOpi (op, find_or a, find_or b, n, d)
+        | Li (r, num, d) -> Li (find_or r, num, d)
+        | Load (a, b, n, d) -> Load (find_or a, find_or b, n, d)
+        | Store (a, b, n, d) -> Store (find_or a, find_or b, n, d)
+        | Cmpd (a, b, d) -> Cmpd (find_or a, find_or b, d)
+        | In (a, d) -> In (find_or a, d)
+        | Out (a, d) -> Out (find_or a, d)
+        | Nop x -> Nop x
+        | BLR -> BLR
+        | Nop d -> Nop d
+        | BEQ (s, d) -> BEQ (s, d)
+        | BLE (s, d) -> BLE (s, d)
+        | Jump (s, d) -> Jump (s, d)
+        | SetLabel (s, d) -> SetLabel (s, d) )
+        :: f y
+  in
+  f
+
+let emit_functions functions =
   let lis =
     List.map
-      (fun x -> SetLabel (x.label, tmp_debug) :: virtual_to_var x.body)
-      Virtual.globals
+      (fun x ->
+        (SetLabel (x.label, tmp_debug) :: virtual_to_var x.body functions)
+        @ [BLR] )
+      functions
   in
-  List.map (List.map emit_var) lis
+  List.iter (List.iter emit_var) lis
+
+let emit_normal functions =
+  let lis =
+    List.map
+      (fun x ->
+        (SetLabel (x.label, tmp_debug) :: virtual_to_var x.body functions)
+        @ [BLR] )
+      functions
+  in
+  let lis = List.map register_alloc_tmp lis in
+  List.iter (List.iter emit) lis

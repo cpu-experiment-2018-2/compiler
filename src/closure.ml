@@ -31,7 +31,8 @@ let find_toplevel var =
 
 let f =
   let _ = toplevel := [] in
-  let rec closure_conversion (e: Knormal.t) =
+  let rec closure_conversion' (e: Knormal.t) known =
+    let closure_conversion x = closure_conversion' x known in
     match e with
     | Const (x, d) -> Const (x, d)
     | Op (op, l, d) -> Op (op, l, d)
@@ -41,9 +42,14 @@ let f =
     | LetRec (fundef, e1, d) ->
         let fv = Knormal.fundef_fv fundef in
         let is_closure = List.length fv <> 0 in
-        let body = closure_conversion fundef.body in
+        let _ =
+          Printf.printf "%s %s %s\n" fundef.f.name
+            (List.fold_left (fun x y -> x ^ "," ^ Syntax.show_var y) "" fv)
+            (string_of_bool is_closure)
+        in
         if is_closure then
           let e1 = closure_conversion e1 in
+          let body = closure_conversion fundef.body in
           Let
             ( fundef.f
             , Closure
@@ -52,6 +58,9 @@ let f =
             , e1
             , d )
         else
+          let body =
+            closure_conversion' fundef.body (fundef.f.name :: known)
+          in
           let _ =
             add_toplevel
               {f= fundef.f; args= fundef.args; fv; body; info= fundef.info}
@@ -59,16 +68,18 @@ let f =
           closure_conversion e1
     | Let (var, e1, e2, d) ->
         Let (var, closure_conversion e1, closure_conversion e2, d)
-    | App (f, args, d) -> (
-      match
-        (* 先にalpha変換しないとバグりそう *)
-        (* alpha変換してる体で行く*)
-        find_toplevel f
-      with
-      | true -> AppDir (f, args, d)
-      | false -> AppCls (f, args, d) )
+    | App (f, args, d) ->
+        if
+          (* 先にalpha変換しないとバグりそう *)
+          (* alpha変換してる体で行く*)
+          List.exists (fun x -> f.name = x) known
+        then AppDir (f, args, d)
+        else if find_toplevel f then AppDir (f, args, d)
+        else AppCls (f, args, d)
     | Tuple (names, d) -> Tuple (names, d)
     | LetTuple (names, name, e, d) ->
         LetTuple (names, name, closure_conversion e, d)
   in
-  fun x -> (closure_conversion x, !toplevel)
+  fun x ->
+    let tmp = closure_conversion' x [] in
+    (tmp, !toplevel)
