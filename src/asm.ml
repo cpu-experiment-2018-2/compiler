@@ -38,6 +38,7 @@ type 'reg u =
   | In of 'reg * Syntax.debug
   | Out of 'reg * Syntax.debug
   | BLR
+  | BL of label * Syntax.debug
 
 type pro = var u list
 
@@ -91,6 +92,8 @@ let rec emit_var (e: var u) =
   | Out (rt, d) ->
       Printf.printf "\tout %%r%s (* %s *)\n" rt.name (Syntax.pos_to_str d.pos)
   | BLR -> Printf.printf "\tblr\n"
+  | BL (label, d) ->
+      Printf.printf "\tbl %s (* %s *)\n" label (Syntax.pos_to_str d.pos)
 
 let rec emit oc (e: int u) =
   match e with
@@ -130,6 +133,8 @@ let rec emit oc (e: int u) =
   | Out (rt, d) ->
       Printf.fprintf oc "\tout %%r%d (* %s *)\n" rt (Syntax.pos_to_str d.pos)
   | BLR -> Printf.fprintf oc "\tblr\n"
+  | BL (label, d) ->
+      Printf.fprintf oc "\tbl %s (* %s *)\n" label (Syntax.pos_to_str d.pos)
 
 (* let rec emit_routine ( es : pro) =
   List.iter (fun x -> emit x) es
@@ -174,7 +179,7 @@ let rec conv (order: debug Virtual.u) var functions =
   | CallDir (label, args, d) ->
       let func = List.find (fun x -> x.label = label) functions in
       let ops = List.map2 (fun x y -> Opi (Add, x, y, 0, d)) func.args args in
-      ops @ [Jump (label, d)]
+      ops @ [BL (label, d)]
   | Out (reg, d) -> [Out (reg, d)]
   | In (reg, d) -> [In (reg, d)]
   | _ -> failwith "yet implemented"
@@ -192,7 +197,7 @@ let ( >>= ) (name, env) f = f (name, env)
 let register_alloc_tmp =
   let r = ref [] in
   let find_or =
-    let c = ref (-1) in
+    let c = ref 2 in
     fun name ->
       match List.find_opt (fun (x, y) -> x = name.name) !r with
       | Some (x, y) -> y
@@ -222,6 +227,7 @@ let register_alloc_tmp =
         | BEQ (s, d) -> BEQ (s, d)
         | BLE (s, d) -> BLE (s, d)
         | Jump (s, d) -> Jump (s, d)
+        | BL (s, d) -> BL (s, d)
         | SetLabel (s, d) -> SetLabel (s, d) )
         :: f y
   in
@@ -261,8 +267,8 @@ let asm_emit p func oc =
   let _ = print_string "\n\tjump main\n" in
   let _ = emit_normal Virtual.globals oc in
   let _ = emit_normal func oc in
-  let _ = print_string "main:\n" in
+  let _ = Printf.fprintf oc "main:\n" in
   let var = {name= Syntax.genvar (); debug= tmp_debug; ty= TyInt} in
   let p = register_alloc_tmp (virtual_to_var p (func @ Virtual.globals) var) in
   let _ = List.iter (emit oc) p in
-  print_string "\tend"
+  Printf.fprintf oc "\tend"
