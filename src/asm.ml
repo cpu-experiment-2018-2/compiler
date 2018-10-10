@@ -40,6 +40,12 @@ type 'reg u =
   | BLR
   | BL of label * Syntax.debug
 
+let lr = 31
+
+let fp = 30
+
+type var_or_reg = Reg of int | Var of var
+
 type pro = var u list
 
 type 'reg routine = label * 'reg u list
@@ -144,6 +150,17 @@ let rec emit_program (global, main) =
   let _ = emit_routine global in *)
 let lr = {name= "lr"; debug= tmp_debug; ty= TyInt}
 
+let rec apply f = function
+  | Nop x -> Nop x
+  | Li (var, x, d) -> Li (f var, x, d)
+  | Opi (iop, x, y, z, d) -> Opi (iop, f x, f y, z, d)
+  | Op (op, x, y, z, d) -> Op (op, f x, f y, f z, d)
+  | FOp (op, x, y, z, d) -> FOp (op, f x, f y, f z, d)
+  | FOpi (op, x, y, z, d) -> FOpi (op, f x, f y, z, d)
+  | Load (x, y, z, d) -> Load (f x, f y, z, d)
+  | Store (x, y, z, d) -> Store (f x, f y, z, d)
+  | Cmpd (x, y, d) -> Cmpd (f x, f y, d)
+
 let rec conv (order: debug Virtual.u) var functions =
   match order with
   | Nop x -> [Nop x]
@@ -197,7 +214,7 @@ let ( >>= ) (name, env) f = f (name, env)
 let register_alloc_tmp =
   let r = ref [] in
   let find_or =
-    let c = ref 2 in
+    let c = ref (-1) in
     fun name ->
       match List.find_opt (fun (x, y) -> x = name.name) !r with
       | Some (x, y) -> y
@@ -255,7 +272,7 @@ let emit_normal functions oc =
   List.iter (List.iter (emit oc)) lis
 
 let asm_var_emit p func =
-  let _ = print_string "\n\tjump main\n" in
+  let _ = print_string "\tjump main\n" in
   let _ = emit_functions Virtual.globals in
   let _ = emit_functions func in
   let _ = print_string "main:\n" in
@@ -264,7 +281,7 @@ let asm_var_emit p func =
   print_string "\tend"
 
 let asm_emit p func oc =
-  let _ = print_string "\n\tjump main\n" in
+  let _ = Printf.fprintf oc "\tjump main\n" in
   let _ = emit_normal Virtual.globals oc in
   let _ = emit_normal func oc in
   let _ = Printf.fprintf oc "main:\n" in

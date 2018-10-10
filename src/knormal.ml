@@ -93,6 +93,12 @@ let rec knormalize (e: Syntax.t) =
               let e2, t2 = knormalize e2 in
               let e3, t3 = knormalize e3 in
               (If (EQ, x, y, e2, e3, d1), t2) ) )
+  | If (Op (Primitive LE, [u1; u2], d0), e2, e3, d1) ->
+      insert_let (knormalize u1) (fun x ->
+          insert_let (knormalize u2) (fun y ->
+              let e2, t2 = knormalize e2 in
+              let e3, t3 = knormalize e3 in
+              (If (LE, x, y, e2, e3, d1), t2) ) )
   | Var (x, d) -> (Var (x, d), x.ty)
   | If (e1, e2, e3, d) ->
       let e1, t1 = knormalize e1 in

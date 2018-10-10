@@ -66,7 +66,6 @@ let rec g_last_var = function
       (Let (x, s, Ans (Var (x, x.debug))), x)
 
 let rec function_to_virtual (fundef: debug Closure.fundef) =
-  let _ = print_string (Closure.show fundef.body) in
   let body = closure_to_virtual' fundef.body in
   let body, last_var = g_last_var body in
   {label= fundef.f.name; args= fundef.args; body; ret= last_var}
