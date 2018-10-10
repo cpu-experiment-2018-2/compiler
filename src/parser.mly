@@ -167,7 +167,7 @@ exp:
 | error
     {
     let lex = (Parsing.symbol_end_pos ()).Lexing.pos_lnum in
-         failwith (string_of_int lex)
+         failwith ("syntax error near line " ^ (string_of_int lex))
     }
 
 fundef:

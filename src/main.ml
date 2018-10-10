@@ -11,11 +11,12 @@ let lexbuf oc l =
   let p = Closure.f p in
   let _ = print_string "closure conversion succeed\n" in
   let p, func = Virtual.f p in
-  let _ = print_string (Virtual.show p) in
-  let _ = Asm.asm_var_emit p func in
+  let _ = print_string "to virtual succeed\n" in
+  (* let _ = print_string (Virtual.show p) in *)
+  (* let _ = Asm.asm_var_emit p func in *)
   Asm.asm_emit p func oc
 
-let _ = print_string "usage: ./compiler filename\n\toutputed to filename.s"
+let _ = print_string "usage: ./compiler filename\n\toutputed to filename.s\n"
 
 let _ =
   let filename = Sys.argv.(1) in
@@ -23,4 +24,4 @@ let _ =
   let oname = filename ^ ".s" in
   let oc = open_out oname in
   let _ = lexbuf oc (Lexing.from_channel ic) in
-  print_string "success"
+  print_string "success\n"

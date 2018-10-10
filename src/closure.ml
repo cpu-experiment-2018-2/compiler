@@ -42,11 +42,10 @@ let f =
     | LetRec (fundef, e1, d) ->
         let fv = Knormal.fundef_fv fundef in
         let is_closure = List.length fv <> 0 in
-        let _ =
-          Printf.printf "%s %s %s\n" fundef.f.name
-            (List.fold_left (fun x y -> x ^ "," ^ Syntax.show_var y) "" fv)
-            (string_of_bool is_closure)
-        in
+        (* let _ = *)
+        (*   Printf.printf "%s %s %s\n" fundef.f.name *)
+        (*     (List.fold_left (fun x y -> x ^ "," ^ Syntax.show_var y) "" fv) *)
+        (*     (string_of_bool is_closure) in *)
         if is_closure then
           let e1 = closure_conversion e1 in
           let body = closure_conversion fundef.body in
