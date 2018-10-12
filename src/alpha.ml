@@ -27,10 +27,10 @@ let rec (g: (string * string) list -> Knormal.t -> Knormal.t) =
       let t1 = g newenv t1 in
       let newenv2 = adds newenv fundef.args in
       let fundef =
-        { fundef with
-          body= g newenv2 fundef.body
-        ; f= conv newenv fundef.f
-        ; args= List.map (conv newenv2) fundef.args }
+        {
+  fundef with body = g newenv2 fundef.body;
+  f = conv newenv fundef.f;
+  args = List.map(conv newenv2) fundef.args }
       in
       LetRec (fundef,  t1, d)
   | App (f, args, d) -> App (conv' f, List.map conv' args, d)

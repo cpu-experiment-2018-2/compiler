@@ -1,76 +1,76 @@
-open Syntax
-open Type
+open Syntax open Type
 
-type cmp = LE | EQ [@@deriving show]
+    type cmp = LE | EQ[@ @deriving show]
 
-type 'a u =
-  | Const of c * 'a
-  | Op of op * var list * 'a
-  | If of cmp * var * var * 'a u * 'a u * 'a
-  | Let of var * 'a u * 'a u * 'a
-  | Var of var * 'a
-  | LetRec of 'a fundef * 'a u * 'a
-  | App of var * var list * 'a
-  | Tuple of var list * 'a
-  | LetTuple of var list * var * 'a u * 'a
-[@@deriving show]
+                   type 'a u = |
+                   Const of c * 'a | Op of op * var list * 'a |
+                   If of cmp * var * var * 'a u * ' a u * 'a |
+                   Let of var * 'a u * ' a u * 'a | Var of var * 'a |
+                   LetRec of 'a fundef * ' a u * 'a |
+                   App of var * var list * 'a | Tuple of var list * 'a |
+                   LetTuple of var list * var * 'a u * ' a[@ @deriving show]
 
-and 'a fundef = {f: var; args: var list; body: 'a u; info: 'a}
-[@@deriving show]
+               and 'a fundef = {f: var; args: var list; body: ' a u;
+info : 'a} [@ @deriving show]
 
-type t = debug u [@@deriving show]
+    type t = debug u[@ @deriving show]
 
-let erase var = List.filter (fun x -> x.name <> var.name)
+    let erase var = List.filter(fun x->x.name<> var.name)
 
-let erase_list vars l = List.fold_left (fun acc var -> erase var acc) l vars
-let rec myprint k indent = 
-    let rec id x = if x = 0 then () else (print_string "\t";id (x-1)) in 
-    print_newline();
-    id indent;
-    (match k with
-    | Const  (c,d) -> print_string "constant\n"
-    | Op (c,vars, d) -> print_string (Syntax.show_op c) ; print_string " ";List.iter (fun x -> print_string x.name ;print_string " ") vars ;print_newline();
-    | If  (cmp,a, b, e1,e2,d) -> (print_string ("IF {") ; myprint e1 (indent+1); id indent;print_string "}\n";id indent; print_string "}\n";myprint e2 (indent + 1));id indent;print_string "}"
-    | Let  (var,e1,e2,d)  -> (print_string ("LET "^var.name ^ " = ") ;myprint e1 (indent + 1); id indent;print_string "IN";myprint e2 (indent + 1))
-    | Var  (var,d) ->(print_string ("VAR "^ var.name ))
+                        let erase_list vars l =
+        List.fold_left(fun acc var->erase var acc)
+            l vars let rec myprint k indent = let rec id x = if x =
+            0 then() else(print_string "\t"; id(x - 1)) in print_newline();
+id indent;
+(match k with | Const(c, d)->print_string "constant\n" |
+     Op(c, vars, d)->print_string(Syntax.show_op c);
+ print_string " "; List.iter(fun x->print_string x.name; print_string " ") vars;
+ print_newline(); |
+                  If(cmp, a, b, e1, e2, d)
+                      ->(print_string("IF {"); myprint e1(indent + 1);
+                         id indent; print_string "}\n"; id indent;
+                         print_string "}\n"; myprint e2(indent + 1));
+ id indent;
+ print_string "}" |
+ Let(var, e1, e2, d)
+     ->(print_string("LET " ^ var.name ^ " = "); myprint e1(indent + 1);
+        id indent; print_string "IN"; myprint e2(indent + 1)) |
+ Var(var, d)->(print_string("VAR " ^ var.name))
 
-    | LetRec  (fundef,e1,d) -> (print_string ("LET REC "^ fundef.f.name ^ " ")) ; List.iter (fun x -> print_string (x.name ^ " ")) fundef.args; print_string " = ";myprint fundef.body (indent+1); id indent;print_string "IN" ; myprint e1 (indent+1)
-    | App (var,vars,d)  -> (print_string "APP " ; print_string (var.name ^" ") ; List.iter (fun x -> print_string (x.name ^ " ")) vars)
-    ;
-    print_newline())
+ | LetRec(fundef, e1, d)->(print_string("LET REC " ^ fundef.f.name ^ " "));
+ List.iter(fun x->print_string(x.name ^ " ")) fundef.args; print_string " = ";
+ myprint fundef.body(indent + 1); id indent; print_string "IN";
+ myprint e1(indent + 1) |
+ App(var, vars, d)
+     ->(print_string "APP "; print_string(var.name ^ " ");
+        List.iter(fun x->print_string(x.name ^ " ")) vars);
+ print_newline())
 
-let rec fv = function
-  | Const _ -> []
-  | Op (_, vars, _) -> vars
-  | If (_, x, y, e1, e2, d) -> x :: y :: (fv e1 @ fv e2)
-  | Var (x, d) -> [x]
-  | App (f, args, d) -> f :: args
-  | Tuple (ts, d) -> ts
-  | Let (var, e0, e1, d) -> fv e0 @ erase var (fv e1)
-  | LetRec (fundef, e1, d) ->
-      erase fundef.f (erase_list fundef.args (fv fundef.body) @ fv e1)
-  | LetTuple (vars, var, e1, d) -> (var :: vars) @ erase_list vars (fv e1)
+    let rec fv = function | Const _->[] | Op(_, vars, _)->vars |
+                 If(_, x, y, e1, e2, d)->x::y::(fv e1 @fv e2) | Var(x, d)->[x] |
+                 App(f, args, d)->f::args | Tuple(ts, d)->ts |
+                 Let(var, e0, e1, d)->fv e0 @erase var(fv e1) |
+                 LetRec(fundef, e1, d)
+                     ->erase fundef.f(erase_list fundef.args(fv fundef.body)
+                                          @fv e1) |
+                 LetTuple(vars, var, e1, d)
+                     ->(var::vars) @erase_list vars(fv e1)
 
-let fundef_fv fundef = erase_list (fundef.f :: fundef.args) (fv fundef.body)
+                         let fundef_fv fundef =
+                     erase_list(fundef.f::fundef.args)(fv fundef.body)
 
-let get_debug e =
-  match e with
-  | Const (_, d)
-   |Op (_, _, d)
-   |If (_, _, _, _, _, d)
-   |Let (_, _, _, d)
-   |Var (_, d)
-   |LetRec (_, _, d)
-   |App (_, _, d)
-   |Tuple (_, d)
-   |LetTuple (_, _, _, d) ->
-      d
+                         let get_debug
+    e = match e with | Const(_, d) | Op(_, _, d) | If(_, _, _, _, _, d) |
+        Let(_, _, _, d) | Var(_, d) | LetRec(_, _, d) | App(_, _, d) |
+        Tuple(_, d) |
+        LetTuple(_, _, _, d)
+            ->d
 
-let insert_let (e, ty) k =
-  match e with
-  | Var (x, d) -> k x
-  | _ ->
-      let alpha = {name= Syntax.genvar (); debug= get_debug e; ty} in
+        let insert_let(e, ty) k = match e with | Var(x, d)->k x
+                                  | _->let alpha = {name = Syntax.genvar();
+debug = get_debug e;
+ty
+} in
       let e', t = k alpha in
       (Let (alpha, e, e', get_debug e), t)
 
@@ -81,7 +81,10 @@ let rec list_to_let (es: (t * ty) list) knormalize =
         match e with
         | Var (e, d) -> (e, None)
         | _ ->
-            let alpha = {name= Syntax.genvar (); debug= get_debug e; ty} in
+            let alpha = {
+  name = Syntax.genvar();
+  debug = get_debug e;
+  ty} in
             (alpha, Some e) )
       es
   in
@@ -131,7 +134,11 @@ let rec knormalize (e: Syntax.t) =
       let e0, t0 = knormalize fundef.body in
       let e1, t1 = knormalize e1 in
       ( LetRec
-          ({f= fundef.f; args= fundef.args; body= e0; info= fundef.info}, e1, d)
+          ({
+  f = fundef.f;
+  args = fundef.args;
+  body = e0;
+  info = fundef.info}, e1, d)
       , t1 )
   | Tuple (l, d) ->
       let args = List.map knormalize l in

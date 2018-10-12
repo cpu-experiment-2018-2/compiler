@@ -1,16 +1,21 @@
-type type_equation = {left: Type.t; right: Type.t; debug: Syntax.debug}
-[@@deriving show]
+type type_equation = {left : Type.t;
+right : Type.t;
+debug : Syntax.debug
+}
+[@ @deriving show]
 
-open Syntax
-open Type
+    open Syntax open Type
 
-exception TypingError of string
+        exception TypingError of string
 
-exception UnifyError of string * string
+            exception UnifyError of string *string
 
-let empty = []
+                let empty = []
 
-let get_eq l r d = {left= l; right= r; debug= d}
+    let get_eq l r d = {left = l;
+right = r;
+debug = d
+}
 
 let rec ty_subst (sigma: (int * t) list) t =
   match t with
@@ -29,9 +34,9 @@ let rec ty_subst (sigma: (int * t) list) t =
 let subst_equations tyvar ty equations =
   List.map
     (fun x ->
-      { x with
-        left= ty_subst [(tyvar, ty)] x.left
-      ; right= ty_subst [(tyvar, ty)] x.right } )
+      {
+  x with left = ty_subst[(tyvar, ty)] x.left;
+  right = ty_subst[(tyvar, ty)] x.right } )
     equations
 
 let rec compose (sigma2: (int * Type.t) list) (sigma1: (int * Type.t) list) =
@@ -131,7 +136,8 @@ let subst_var sigma v =
   | Some (var, ty) -> {v with ty}
   | None ->
       let ty = instanciate_builtin v.name in
-      {v with ty}
+      {
+  v with ty}
 
 let rec gather_eq' type_env e =
   let gather_eq = gather_eq' type_env in
@@ -160,7 +166,10 @@ let rec gather_eq' type_env e =
       let c = List.concat (List.map snd res) in
       let ts = List.map fst res in
       let new_c =
-        List.map2 (fun l r -> {left= l; right= r; debug= d}) ts info.args
+        List.map2 (fun l r -> {
+  left = l;
+  right = r;
+  debug = d}) ts info.args
       in
       (info.ret, new_c @ c)
   | If (e1, e2, e3, d) ->
@@ -239,10 +248,10 @@ let rec subst_ast sigma s =
   | Var (var, d) -> Var (subst_var sigma var, d)
   | LetRec (fundef, t0, d) ->
       LetRec
-        ( { fundef with
-            f= subst_var sigma fundef.f
-          ; args= List.map (subst_var sigma) fundef.args
-          ; body= subst_ast sigma fundef.body }
+        ( {
+  fundef with f = subst_var sigma fundef.f;
+  args = List.map(subst_var sigma) fundef.args;
+  body = subst_ast sigma fundef.body }
         , f t0
         , d )
   | App (t0, ts, d) -> App (f t0, List.map f ts, d)
