@@ -23,6 +23,21 @@ type t = debug u [@@deriving show]
 let erase var = List.filter (fun x -> x.name <> var.name)
 
 let erase_list vars l = List.fold_left (fun acc var -> erase var acc) l vars
+let rec myprint k indent = 
+    let rec id x = if x = 0 then () else (print_string "\t";id (x-1)) in 
+    print_newline();
+    id indent;
+    (match k with
+    | Const  (c,d) -> print_string "constant\n"
+    | Op (c,vars, d) -> print_string (Syntax.show_op c) ; print_string " ";List.iter (fun x -> print_string x.name ;print_string " ") vars ;print_newline();
+    | If  (cmp,a, b, e1,e2,d) -> (print_string ("IF {") ; myprint e1 (indent+1); id indent;print_string "}\n";id indent; print_string "}\n";myprint e2 (indent + 1));id indent;print_string "}"
+    | Let  (var,e1,e2,d)  -> (print_string ("LET "^var.name ^ " = ") ;myprint e1 (indent + 1); id indent;print_string "IN";myprint e2 (indent + 1))
+    | Var  (var,d) ->(print_string ("VAR "^ var.name ))
+
+    | LetRec  (fundef,e1,d) -> (print_string ("LET REC "^ fundef.f.name ^ " ")) ; List.iter (fun x -> print_string (x.name ^ " ")) fundef.args; print_string " = ";myprint fundef.body (indent+1); id indent;print_string "IN" ; myprint e1 (indent+1)
+    | App (var,vars,d)  -> (print_string "APP " ; print_string (var.name ^" ") ; List.iter (fun x -> print_string (x.name ^ " ")) vars)
+    ;
+    print_newline())
 
 let rec fv = function
   | Const _ -> []

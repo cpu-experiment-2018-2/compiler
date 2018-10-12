@@ -175,13 +175,15 @@ let rec gather_eq' type_env e =
       let ty = TyFun (args_var, beta) in
       let t1, c1 =
         gather_eq'
-          ( (fundef.f.name, ty)
-            :: List.map (fun x -> (x.name, x.ty)) fundef.args
+          ( 
+            List.map (fun x -> (x.name, x.ty)) fundef.args @ [(fundef.f.name, ty)] 
           @ type_env )
           fundef.body
       in
       let t2, c2 = gather_eq' ((fundef.f.name, ty) :: type_env) e1 in
-      (t2, get_eq ty alpha d :: get_eq t1 beta d :: (c1 @ c2))
+      (t2, get_eq ty alpha d :: get_eq t1 beta d :: (c1 @ c2)) 
+      (* (t2, get_eq ty alpha d :: (c1 @ c2)) *)
+
   | Let (var, e1, e2, d) ->
       let t1, c1 = gather_eq e1 in
       (*
