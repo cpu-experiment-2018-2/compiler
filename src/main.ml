@@ -1,14 +1,14 @@
-let show_ast = true
+let show_ast = false
 
 let show_typed = false
 
-let show_knormal = true
+let show_knormal = false
 
-let show_alpha = true
+let show_alpha = false
 
 let show_closure = false
 
-let show_virtual = true
+let show_virtual = false
 
 let lexbuf oc l =
   let p = Parser.top_exp Lexer.token l in
@@ -37,7 +37,7 @@ let _ = print_string "usage: ./compiler filename\n\toutputed to filename.s\n"
 let _ =
   let filename = Sys.argv.(1) in
   let ic = open_in filename in
-  let oname = filename ^ ".s" in
+  let oname = filename ^ ".st" in
   let oc = open_out oname in
   let _ = lexbuf oc (Lexing.from_channel ic) in
   print_string ("success\nassembly is outputed to " ^ oname)

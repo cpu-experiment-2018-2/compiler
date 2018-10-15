@@ -12,7 +12,7 @@ let empty = []
 
 let get_eq l r d = {left= l; right= r; debug= d}
 
-let rec ty_subst (sigma: (int * t) list) t =
+let rec ty_subst (sigma : (int * t) list) t =
   match t with
   | (TyInt | TyUnit | TyBool | TyFloat) as self -> self
   | TyFun (a, b) -> TyFun (List.map (ty_subst sigma) a, ty_subst sigma b)
@@ -34,7 +34,7 @@ let subst_equations tyvar ty equations =
       ; right= ty_subst [(tyvar, ty)] x.right } )
     equations
 
-let rec compose (sigma2: (int * Type.t) list) (sigma1: (int * Type.t) list) =
+let rec compose (sigma2 : (int * Type.t) list) (sigma1 : (int * Type.t) list) =
   let sigma11 = List.map (fun (tx, t) -> (tx, ty_subst sigma2 t)) sigma1 in
   List.fold_left
     (fun tau (tx, t) ->
@@ -55,11 +55,11 @@ let same_len l1 l2 eq =
     raise (UnifyError (show_type_equation eq, "should have same length"))
   else ()
 
-let rec (ty_unify: type_equation list -> (int * Type.t) list) =
+let rec (ty_unify : type_equation list -> (int * Type.t) list) =
  fun equations ->
   match equations with
   | [] -> []
-  | eq :: rest ->
+  | eq :: rest -> (
     match (eq.left, eq.right) with
     | TyVar a, TyVar b ->
         if a = b then ty_unify rest
@@ -85,7 +85,7 @@ let rec (ty_unify: type_equation list -> (int * Type.t) list) =
           raise (UnifyError (show_type_equation eq, "occurence check"))
         else compose (ty_unify (subst_equations a eq.left rest)) [(a, eq.left)]
     | TyArray a, TyArray b -> ty_unify (get_eq a b eq.debug :: rest)
-    | _ -> raise (UnifyError (show_type_equation eq, "unify failed"))
+    | _ -> raise (UnifyError (show_type_equation eq, "unify failed")) )
 
 let builtin_function' =
   [ ("print_int", ([], [TyInt], TyUnit))
@@ -119,11 +119,11 @@ let instanciate_builtin name =
   | "create_array" ->
       let s = Type.genvar () in
       TyFun ([TyInt; TyVar s], TyArray (TyVar s))
-  | _ ->
+  | _ -> (
     try
       let a, b, c = List.assoc name builtin_function' in
       TyFun (b, c)
-    with _ -> raise (TypingError ("unbound " ^ name))
+    with _ -> raise (TypingError ("unbound " ^ name)) )
 
 let subst_var sigma v =
   let (TyVar tyvar) = v.ty in
@@ -194,13 +194,11 @@ let rec gather_eq' type_env e =
       let t2, c2 = gather_eq' env e2 in
       (t2, (get_eq var.ty t1 d :: c1) @ c2)
   | Var (name, d) -> (
-    match
-      (*
+    (*
         globalでinstanciate は実装する必要がある
         create_arrayの第二引数は多相になってるから
         *)
-      List.find_opt (fun (x, y) -> x = name.name) type_env
-    with
+    match List.find_opt (fun (x, y) -> x = name.name) type_env with
     | Some (str, ty) -> (ty, [get_eq ty name.ty d])
     | None ->
         let ty = instanciate_builtin name.name in

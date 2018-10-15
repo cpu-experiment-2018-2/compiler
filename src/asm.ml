@@ -66,7 +66,7 @@ type t = int program
 
 let move v1 v2 d = Opi (Add, v1, v2, 0, d)
 
-let rec emit_var (e: var u) =
+let rec emit_var (e : var u) =
   match e with
   | Nop d -> Printf.printf "\tnop (* %s *)" (Syntax.pos_to_str d.pos)
   | Li (reg, x, d) ->
@@ -107,7 +107,47 @@ let rec emit_var (e: var u) =
   | BL (label, d) ->
       Printf.printf "\tbl %s (* %s *)\n" label (Syntax.pos_to_str d.pos)
 
-let rec emit oc (e: int u) =
+let rec emit_sugar oc (e : string u) =
+  match e with
+  | Nop d -> Printf.fprintf oc "\tnop (* %s *)" (Syntax.pos_to_str d.pos)
+  | Li (reg, x, d) ->
+      Printf.fprintf oc "\tli %s,%d (* %s *)\n" reg x (Syntax.pos_to_str d.pos)
+  | Op (op, rt, ra, rb, d) ->
+      Printf.fprintf oc "\t%s %s,%s,%s (* %s *)\n" (iop_to_str op) rt ra rb
+        (Syntax.pos_to_str d.pos)
+  | Opi (op, rt, ra, offset, d) ->
+      Printf.fprintf oc "\t%si %s,%s,%d (* %s *)\n" (iop_to_str op) rt ra
+        offset (Syntax.pos_to_str d.pos)
+  | FOp (op, rt, ra, rb, d) ->
+      Printf.fprintf oc "\t%s %s, %s,%s (* %s *)\n" (fop_to_str op) rt ra rb
+        (Syntax.pos_to_str d.pos)
+  | FOpi (op, rt, ra, offset, d) -> failwith "not implemented fopi"
+  | SetLabel (label, d) ->
+      Printf.fprintf oc "%s : (* %s *)\n" label (Syntax.pos_to_str d.pos)
+  | Load (rt, rs, offset, d) ->
+      Printf.fprintf oc "\tload %s, %s ,%d (* %s *)\n" rt rs offset
+        (Syntax.pos_to_str d.pos)
+  | Store (rt, rs, offset, d) ->
+      Printf.fprintf oc "\tstore %s,%s, %d (* %s *)\n" rt rs offset
+        (Syntax.pos_to_str d.pos)
+  | Cmpd (ra, rb, d) ->
+      Printf.fprintf oc "\tcmpd %s,%s(* %s *)\n" ra rb
+        (Syntax.pos_to_str d.pos)
+  | BEQ (label, d) ->
+      Printf.fprintf oc "\tbeq %s (* %s *)\n" label (Syntax.pos_to_str d.pos)
+  | BLE (label, d) ->
+      Printf.fprintf oc "\tble %s (* %s *)\n" label (Syntax.pos_to_str d.pos)
+  | Jump (label, d) ->
+      Printf.fprintf oc "\tjump %s (* %s *)\n" label (Syntax.pos_to_str d.pos)
+  | In (rt, d) ->
+      Printf.fprintf oc "\tinll %s (* %s *)\n" rt (Syntax.pos_to_str d.pos)
+  | Out (rt, d) ->
+      Printf.fprintf oc "\toutll %s (* %s *)\n" rt (Syntax.pos_to_str d.pos)
+  | BLR -> Printf.fprintf oc "\tblr\n"
+  | BL (label, d) ->
+      Printf.fprintf oc "\tbl %s (* %s *)\n" label (Syntax.pos_to_str d.pos)
+
+let rec emit oc (e : int u) =
   match e with
   | Nop d -> Printf.fprintf oc "\tnop (* %s *)" (Syntax.pos_to_str d.pos)
   | Li (reg, x, d) ->
@@ -180,7 +220,15 @@ let rec apply f = function
 
 let var2var_or_im = apply (fun x -> Var x)
 
-let rec conv (order: debug Virtual.u) var functions =
+let reg2regstr =
+  apply (fun x ->
+      match x with
+      | 1 -> "%sp"
+      | 2 -> "%fp"
+      | 31 -> "%lr"
+      | _ -> "%r" ^ string_of_int x )
+
+let rec conv (order : debug Virtual.u) var functions =
   let change = List.map var2var_or_im in
   match order with
   | Nop x -> change [Nop x]
@@ -194,6 +242,8 @@ let rec conv (order: debug Virtual.u) var functions =
   | Op (Primitive FAdd, [x; y], d) -> change [Op (Add, var, x, y, d)]
   | Op (Primitive FSub, [x; y], d) -> change [Op (Sub, var, x, y, d)]
   | Op (Primitive FDiv, [x; y], d) -> change [Op (Div, var, x, y, d)]
+  | Op (Primitive Neg, [x], d) ->
+      change [Li (var, 0, d); Op (Sub, var, var, x, d)]
   | Load (t, s, d) -> change [Load (t, s, 0, d)]
   | Store (t, s, d) -> change [Store (t, s, 0, d)]
   | If (cmp, x, y, tr, fa, d) ->
@@ -221,7 +271,7 @@ let rec conv (order: debug Virtual.u) var functions =
       ops @ [Opi (Add, Var var, Var func.ret, 0, d); BL (label, d)]
   | Out (reg, d) -> change [Out (reg, d)]
   | In (reg, d) -> change [In (reg, d)]
-  | _ -> failwith "yet implemented"
+  | _ -> failwith (Virtual.show_tmp order)
 
 and virtual_to_var e functions ret =
   match e with
@@ -316,7 +366,8 @@ let emit_normal functions oc =
       functions
   in
   let lis = List.map register_alloc_tmp lis in
-  List.iter (List.iter (emit oc)) lis
+  let lis = List.map (List.map reg2regstr) lis in
+  List.iter (List.iter (emit_sugar oc)) lis
 
 (* let asm_var_emit p func =
   let _ = print_string "\tjump main\n" in
@@ -332,10 +383,11 @@ let asm_emit p func oc =
   let _ = emit_normal Virtual.globals oc in
   let _ = emit_normal func oc in
   let _ = Printf.fprintf oc "main:\n" in
-  let _ = Printf.fprintf oc "\tli %%r2,0\n" in
-  let _ = Printf.fprintf oc "\tli %%r1,1\n" in
-  let _ = Printf.fprintf oc "\tstore %%r2,%%r2,0\n" in
+  let _ = Printf.fprintf oc "\tli %%fp,0\n" in
+  let _ = Printf.fprintf oc "\tli %%sp,1\n" in
+  let _ = Printf.fprintf oc "\tstore %%fp,%%fp,0\n" in
   let var = {name= Syntax.genvar (); debug= tmp_debug; ty= TyInt} in
   let p = register_alloc_tmp (virtual_to_var p (func @ Virtual.globals) var) in
-  let _ = List.iter (emit oc) p in
+  let p = List.map reg2regstr p in
+  let _ = List.iter (emit_sugar oc) p in
   Printf.fprintf oc "\tend"
