@@ -1,3 +1,5 @@
+open Virtual
+
 let show_ast = false
 
 let show_typed = false
@@ -30,6 +32,16 @@ let lexbuf oc l =
   let p, func = Virtual.f p in
   let _ = print_string "to virtual succeed\n" in
   let _ = if show_virtual then print_string (Virtual.show p) else () in
+  let _ =
+    if show_virtual then
+      List.iter
+        (fun x ->
+          print_string x.label ;
+          print_newline () ;
+          print_string (Virtual.show x.body) )
+        func
+    else ()
+  in
   Asm.asm_emit p func oc
 
 let _ = print_string "usage: ./compiler filename\n\toutputed to filename.s\n"

@@ -3,6 +3,8 @@ open Closure
 
 type label = string [@@deriving show]
 
+type bitpos = LL | LH | UL | UH [@@deriving show]
+
 type 'a u =
   | Nop of 'a
   | Li of int * 'a
@@ -16,6 +18,7 @@ type 'a u =
   | CallDir of label * var list * 'a
   | In of var * 'a
   | Out of var * 'a
+  | OutPos of var * bitpos * 'a
 [@@deriving show]
 
 and 'a v = Ans of 'a u | Let of var * 'a u * 'a v [@@deriving show]
@@ -26,14 +29,23 @@ and 'a prog = string * 'a v
 
 type t = Syntax.debug v [@@deriving show]
 
-type fundef = {label: string; args: var list; body: debug v; ret: var}
+type fundef =
+  {label: string; args: var list; body: debug v; ret: var; local: var list}
+
+let unique left right = left @ right
+
+let rec collect_local x =
+  match x with
+  | Ans (If (_, x, y, e1, e2, d)) -> collect_local e1 @ collect_local e2
+  | Ans _ -> []
+  | Let (x, x1, x2) -> (x :: collect_local (Ans x1)) @ collect_local x2
 
 let rec concat var e1 e2 =
   match e1 with
   | Ans x -> Let (var, x, e2)
   | Let (y, t1, t2) -> Let (y, t1, concat var t2 e2)
 
-let rec closure_to_virtual' (e : Closure.t) =
+let rec closure_to_virtual' (e: Closure.t) =
   let closure_to_virtual x = closure_to_virtual' x in
   match e with
   | Const (CUnit, d) -> Ans (Nop d)
@@ -67,13 +79,28 @@ let rec g_last_var = function
       let x = tmp_var () in
       (Let (x, s, Ans (Var (x, x.debug))), x)
 
-let rec function_to_virtual (fundef : debug Closure.fundef) =
+let rec function_to_virtual (fundef: debug Closure.fundef) =
   let body = closure_to_virtual' fundef.body in
   let body, last_var = g_last_var body in
-  {label= fundef.f.name; args= fundef.args; body; ret= last_var}
+  let localvars = collect_local body in
+  { label= fundef.f.name
+  ; args= fundef.args
+  ; body
+  ; ret= last_var
+  ; local= fundef.args @ localvars }
 
 let f (x, y) = (closure_to_virtual' x, List.map function_to_virtual y)
 
 let globals =
   [ (let v = tmp_var () in
-     {label= "print_int"; args= [v]; body= Ans (Out (v, v.debug)); ret= v}) ]
+     { label= "print_int"
+     ; args= [v]
+     ; body= Ans (Out (v, v.debug))
+     ; ret= v
+     ; local= [] })
+  ; (let v = tmp_var () in
+     { label= "print_char"
+     ; args= [v]
+     ; body= Ans (OutPos (v, LL, v.debug))
+     ; ret= v
+     ; local= [] }) ]
