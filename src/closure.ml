@@ -29,6 +29,15 @@ let find_toplevel var =
   | None -> List.exists (fun x -> fst x = var.name) Typing.builtin_function'
   | Some x -> true
 
+let remove fv known =
+  List.filter
+    (fun x ->
+      not
+        (List.exists
+           (fun y -> y = x.name)
+           (known @ List.map fst Typing.builtin_function')) )
+    fv
+
 let f =
   let _ = toplevel := [] in
   let rec closure_conversion' (e: Knormal.t) known =
@@ -41,11 +50,11 @@ let f =
     | Var (name, d) -> Var (name, d)
     | LetRec (fundef, e1, d) ->
         let fv = Knormal.fundef_fv fundef in
+        let fv = remove fv known in
+        let _ =
+          List.iter (fun x -> print_string x.name ; print_newline ()) fv
+        in
         let is_closure = List.length fv <> 0 in
-        (* let _ = *)
-        (*   Printf.printf "%s %s %s\n" fundef.f.name *)
-        (*     (List.fold_left (fun x y -> x ^ "," ^ Syntax.show_var y) "" fv) *)
-        (*     (string_of_bool is_closure) in *)
         if is_closure then
           let e1 = closure_conversion e1 in
           let body = closure_conversion fundef.body in
@@ -64,7 +73,7 @@ let f =
             add_toplevel
               {f= fundef.f; args= fundef.args; fv; body; info= fundef.info}
           in
-          closure_conversion e1
+          closure_conversion' e1 (fundef.f.name :: known)
     | Let (var, e1, e2, d) ->
         Let (var, closure_conversion e1, closure_conversion e2, d)
     | App (f, args, d) ->

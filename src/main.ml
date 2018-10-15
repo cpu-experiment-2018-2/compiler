@@ -12,7 +12,7 @@ let show_closure = false
 
 let show_virtual = false
 
-let lexbuf oc l =
+let lexbuf oc l init =
   let p = Parser.top_exp Lexer.token l in
   let _ = print_newline () in
   let _ = print_string "parse succeed\n" in
@@ -44,6 +44,8 @@ let lexbuf oc l =
   in
   Asm.asm_emit p func oc
 
+let init = 0
+
 let _ = print_string "usage: ./compiler filename\n\toutputed to filename.s\n"
 
 let _ =
@@ -51,5 +53,5 @@ let _ =
   let ic = open_in filename in
   let oname = filename ^ ".st" in
   let oc = open_out oname in
-  let _ = lexbuf oc (Lexing.from_channel ic) in
+  let _ = lexbuf oc (Lexing.from_channel ic) init in
   print_string ("success\nassembly is outputed to " ^ oname)

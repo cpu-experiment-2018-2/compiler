@@ -5,6 +5,18 @@ type label = string [@@deriving show]
 
 type bitpos = LL | LH | UL | UH [@@deriving show]
 
+let mem = ref 30000
+
+let get () =
+  let tmp = !mem in
+  mem := !mem + 1 ;
+  tmp
+
+let malloc size =
+  let tmp = !mem in
+  mem := size + !mem ;
+  tmp
+
 type 'a u =
   | Nop of 'a
   | Li of int * 'a
@@ -14,11 +26,11 @@ type 'a u =
   | Load of var * var * 'a
   | Store of var * var * 'a
   | If of Knormal.cmp * var * var * 'a v * 'a v * 'a
-  | CallCls of var * var list * 'a
   | CallDir of label * var list * 'a
   | In of var * 'a
   | Out of var * 'a
   | OutPos of var * bitpos * 'a
+  | CallAsm of var list * string
 [@@deriving show]
 
 and 'a v = Ans of 'a u | Let of var * 'a u * 'a v [@@deriving show]
@@ -62,11 +74,12 @@ let rec closure_to_virtual' (e: Closure.t) =
       concat var (closure_to_virtual e1) (closure_to_virtual e2)
   | Var (var, d) -> Ans (Var (var, d))
   | Closure (fundef, d) ->
-      (* 一旦忘れる *)
       let body = closure_to_virtual fundef.body in
       Ans (Nop d)
-  | AppDir (var, ys, d) -> Ans (CallDir (var.name, ys, d))
-  | _ -> failwith "it is not support"
+  (* | AppCls (var, ys, d) -> Ans (CallCls (var, ys, d))  *)
+  | AppDir (var, ys, d) ->
+      Ans (CallDir (var.name, ys, d))
+  | _ -> failwith (Closure.show e)
 
 let tmp_var () = {name= Syntax.genvar (); debug= {pos= Global}; ty= TyInt}
 
@@ -102,5 +115,35 @@ let globals =
      { label= "print_char"
      ; args= [v]
      ; body= Ans (OutPos (v, LL, v.debug))
+     ; ret= v
+     ; local= [] })
+  ; (let v2 = tmp_var () in
+     let v1 = tmp_var () in
+     let v = tmp_var () in
+     { label= "fless"
+     ; args= [v1; v2]
+     ; body=
+         Let
+           ( v
+           , If
+               ( Knormal.LE
+               , v1
+               , v2
+               , Ans (Li (1, v1.debug))
+               , Ans (Li (0, v1.debug))
+               , v1.debug )
+           , Ans (Var (v, v.debug)) )
+     ; ret= v
+     ; local= [] })
+  ; (let v = tmp_var () in
+     { label= "float_of_int"
+     ; args= [v]
+     ; body= Let (v, CallAsm ([v], "itof"), Ans (Var (v, v.debug)))
+     ; ret= v
+     ; local= [] })
+  ; (let v = tmp_var () in
+     { label= "int_of_float"
+     ; args= [v]
+     ; body= Let (v, CallAsm ([v], "ftoi"), Ans (Var (v, v.debug)))
      ; ret= v
      ; local= [] }) ]
