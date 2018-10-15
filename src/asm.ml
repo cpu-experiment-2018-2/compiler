@@ -344,14 +344,12 @@ let register_alloc_tmp =
 let move reg1 reg2 = Opi (Add, reg1, reg2, 0, tmp_debug)
 
 let proepi d localsize =
-  ( [ (* Store(stackp, linkreg, 0, d);
-    Opi(Add,stackp, stackp, localsize + 1 , d);
-    Store(stackp, framep, 0, d)], *)
+  ( [ 
       Store (linkreg, stackp, 0, d)
     ; Opi (Add, stackp, stackp, localsize + 1, d)
     ; Store (framep, stackp, 0, d) ]
   , [ Load (linkreg, framep, 1, d)
-    ; move stackp framep
+    ; Opi(Add, stackp,framep , 1,d)
     ; Load (framep, framep, 0, d)
     ; BLR ] )
 
