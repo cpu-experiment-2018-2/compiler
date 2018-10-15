@@ -1,6 +1,6 @@
 open Syntax
 
-let conv (env: (string * string) list) (var: var) =
+let conv (env : (string * string) list) (var : var) =
   match List.find_opt (fun (a, b) -> a = var.name) env with
   | Some (a, b) -> {var with name= b}
   | None -> var
@@ -10,7 +10,7 @@ let add env var = (var.name, "n" ^ Syntax.genvar () ^ "." ^ var.name) :: env
 let rec adds env li =
   match li with [] -> env | x :: xs -> adds (add env x) xs
 
-let rec (g: (string * string) list -> Knormal.t -> Knormal.t) =
+let rec (g : (string * string) list -> Knormal.t -> Knormal.t) =
  fun env e ->
   let g' = g env in
   let conv' = conv env in

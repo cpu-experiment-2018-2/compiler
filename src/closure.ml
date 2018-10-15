@@ -20,7 +20,7 @@ and 'a fundef = {f: var; args: var list; fv: var list; body: 'a u; info: 'a}
 
 type t = debug u [@@deriving show]
 
-let (toplevel: debug fundef list ref) = ref []
+let (toplevel : debug fundef list ref) = ref []
 
 let add_toplevel fundef = toplevel := fundef :: !toplevel
 
@@ -31,7 +31,7 @@ let find_toplevel var =
 
 let f =
   let _ = toplevel := [] in
-  let rec closure_conversion' (e: Knormal.t) known =
+  let rec closure_conversion' (e : Knormal.t) known =
     let closure_conversion x = closure_conversion' x known in
     match e with
     | Const (x, d) -> Const (x, d)

@@ -20,7 +20,9 @@ type 'a u =
 
 and 'a v = Ans of 'a u | Let of var * 'a u * 'a v [@@deriving show]
 
-and 'a prog = (string * 'a v)
+type tmp = Syntax.debug u [@@deriving show]
+
+and 'a prog = string * 'a v
 
 type t = Syntax.debug v [@@deriving show]
 
@@ -31,7 +33,7 @@ let rec concat var e1 e2 =
   | Ans x -> Let (var, x, e2)
   | Let (y, t1, t2) -> Let (y, t1, concat var t2 e2)
 
-let rec closure_to_virtual' (e: Closure.t) =
+let rec closure_to_virtual' (e : Closure.t) =
   let closure_to_virtual x = closure_to_virtual' x in
   match e with
   | Const (CUnit, d) -> Ans (Nop d)
@@ -65,7 +67,7 @@ let rec g_last_var = function
       let x = tmp_var () in
       (Let (x, s, Ans (Var (x, x.debug))), x)
 
-let rec function_to_virtual (fundef: debug Closure.fundef) =
+let rec function_to_virtual (fundef : debug Closure.fundef) =
   let body = closure_to_virtual' fundef.body in
   let body, last_var = g_last_var body in
   {label= fundef.f.name; args= fundef.args; body; ret= last_var}
