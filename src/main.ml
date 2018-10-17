@@ -8,9 +8,9 @@ let show_knormal = false
 
 let show_alpha = false
 
-let show_closure = false
+let show_closure = false 
 
-let show_virtual = false
+let show_virtual = false 
 
 let lexbuf oc l init =
   let p = Parser.top_exp Lexer.token l in

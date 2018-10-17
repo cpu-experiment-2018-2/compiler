@@ -94,6 +94,7 @@ let builtin_function' =
   ; ("print_float", ([], [TyFloat], TyUnit))
   ; ("fless", ([], [TyFloat; TyFloat], TyBool))
   ; ("fneg", ([], [TyFloat], TyFloat))
+  ; ("Obj.magic", ([], [TyInt], TyInt))
   ; ("read_int", ([], [TyUnit], TyInt))
   ; ("read_float", ([], [TyUnit], TyFloat))
   ; ("fabs", ([], [TyFloat], TyFloat))
@@ -119,6 +120,10 @@ let instanciate_builtin name =
   | "create_array" ->
       let s = Type.genvar () in
       TyFun ([TyInt; TyVar s], TyArray (TyVar s))
+  |  "Obj.magic" ->  
+      let s = Type.genvar () in
+      let t = Type.genvar () in
+      TyFun ([TyVar s], TyVar t)
   | _ ->
     try
       let a, b, c = List.assoc name builtin_function' in

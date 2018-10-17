@@ -159,8 +159,8 @@ let rec knormalize (e: Syntax.t) =
       let e3, t3 = knormalize e3 in
       insert_let (e1, t1) (fun x ->
           insert_let
-            (Const (CBool true, d), TyBool)
-            (fun y -> (If (EQ, x, y, e2, e3, d), t2)) )
+            (Const (CBool false, d), TyBool)
+            (fun y -> (If (EQ, x, y, e3, e2, d), t2)) )
   | Let (var, e1, e2, d) ->
       let e1, t1 = knormalize e1 in
       let e2, t2 = knormalize e2 in

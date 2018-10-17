@@ -1,6 +1,8 @@
 open Syntax
 open Virtual
 
+external getint : float -> int = "getint"
+
 type iop = Mul | Add | Sub | Div
 
 let pos_to pos =
@@ -88,8 +90,17 @@ let evacuate local saved =
   (snd a, snd b)
 
 let move v1 v2 d = Opi (Add, v1, v2, 0, d)
+let rec record (e : string u list) = 
+    let f acc s =
+        match s with
+        | SetLabel(label,Other,l) -> 
+                label :: acc
+        | _ -> acc
+    in 
+        let ans = List.fold_left f [] e in 
+        fun x -> if List.exists (fun y -> x = y) ans  then "@@"^x else x
 
-let rec emit_sugar oc (e: string u) =
+let rec emit_sugar oc ch (e: string u) =
   match e with
   | Nop d -> Printf.fprintf oc "\tnop (* %s *)" (Syntax.pos_to_str d.pos)
   | Li (reg, x, d) ->
@@ -104,9 +115,12 @@ let rec emit_sugar oc (e: string u) =
       Printf.fprintf oc "\t%s %s, %s,%s (* %s *)\n" (fop_to_str op) rt ra rb
         (Syntax.pos_to_str d.pos)
   | FOpi (op, rt, ra, offset, d) -> failwith "not implemented fopi"
-  | SetLabel (label, t, d) ->
-      Printf.fprintf oc "%s : (* %s %s *)\n" label (show_labelType t)
-        (Syntax.pos_to_str d.pos)
+  | SetLabel (label, Other, d) ->
+          (
+      Printf.fprintf oc "@@%s : (* %s %s *)\n" label "Local Label"  (Syntax.pos_to_str d.pos)
+          )
+  | SetLabel (label, FunCall, d) ->
+      Printf.fprintf oc "%s : (* %s %s *)\n" label "Global Fun" (Syntax.pos_to_str d.pos)
   | Load (rt, rs, offset, d) ->
       Printf.fprintf oc "\tload %s, %s ,%d (* %s *)\n" rt rs offset
         (Syntax.pos_to_str d.pos)
@@ -117,11 +131,11 @@ let rec emit_sugar oc (e: string u) =
       Printf.fprintf oc "\tcmpd %s,%s(* %s *)\n" ra rb
         (Syntax.pos_to_str d.pos)
   | BEQ (label, d) ->
-      Printf.fprintf oc "\tbeq %s (* %s *)\n" label (Syntax.pos_to_str d.pos)
+      Printf.fprintf oc "\tbeq %s (* %s *)\n"  (ch label)(Syntax.pos_to_str d.pos)
   | BLE (label, d) ->
-      Printf.fprintf oc "\tble %s (* %s *)\n" label (Syntax.pos_to_str d.pos)
+      Printf.fprintf oc "\tble %s (* %s *)\n" (ch label) (Syntax.pos_to_str d.pos)
   | Jump (label, d) ->
-      Printf.fprintf oc "\tjump %s (* %s *)\n" label (Syntax.pos_to_str d.pos)
+      Printf.fprintf oc "\tjump %s (* %s *)\n" (ch label) (Syntax.pos_to_str d.pos)
   | In (rt, d) ->
       Printf.fprintf oc "\tinuh %s (* %s *)\n" rt (Syntax.pos_to_str d.pos) ;
       Printf.fprintf oc "\tinul %s (* %s *)\n" rt (Syntax.pos_to_str d.pos) ;
@@ -137,7 +151,7 @@ let rec emit_sugar oc (e: string u) =
       Printf.fprintf oc "\tout%s %s (* %s *)\n" s rt (Syntax.pos_to_str d.pos)
   | BLR -> Printf.fprintf oc "\tblr\n"
   | BL (label, d) ->
-      Printf.fprintf oc "\tbl %s (* %s *)\n" label (Syntax.pos_to_str d.pos)
+      Printf.fprintf oc "\tbl %s (* %s *)\n" (ch label) (Syntax.pos_to_str d.pos)
   | CallAsm ([x; y], op) -> Printf.fprintf oc "\t%s %s,%s \n" op x y
   | CallAsm ([x; y; z], op) -> Printf.fprintf oc "\t%s %s,%s,%s \n" op x y z
 
@@ -178,17 +192,23 @@ let rec conv (order: debug Virtual.u) var local saved =
   match order with
   | Nop x -> change [Nop x]
   | Li (x, d) -> change [Li (var, x, d)]
-  | FLi (x, d) -> change [Li (var, Obj.magic x, d)]
+  | FLi (x, d) -> change [Li (var, getint x, d)]
   | Op (Primitive Add, [x; y], d) -> change [Op (Add, var, x, y, d)]
   | Op (Primitive Sub, [x; y], d) -> change [Op (Sub, var, x, y, d)]
   | Op (Primitive Mul, [x; y], d) -> change [Op (Mul, var, x, y, d)]
   | Op (Primitive Div, [x; y], d) -> change [Op (Div, var, x, y, d)]
-  | Op (Primitive FMul, [x; y], d) -> change [Op (Mul, var, x, y, d)]
-  | Op (Primitive FAdd, [x; y], d) -> change [Op (Add, var, x, y, d)]
-  | Op (Primitive FSub, [x; y], d) -> change [Op (Sub, var, x, y, d)]
-  | Op (Primitive FDiv, [x; y], d) -> change [Op (Div, var, x, y, d)]
+  | Op (Primitive FMul, [x; y], d) -> change [FOp (Mul, var, x, y, d)]
+  | Op (Primitive FAdd, [x; y], d) -> change [FOp (Add, var, x, y, d)]
+  | Op (Primitive FSub, [x; y], d) -> change [FOp (Sub, var, x, y, d)]
+  | Op (Primitive FDiv, [x; y], d) -> change [FOp (Div, var, x, y, d)]
   | Op (Primitive Neg, [x], d) ->
       change [Li (var, 0, d); Op (Sub, var, var, x, d)]
+  (* | Op (Primitive Not, [x], d) -> *)
+  (*         (* if x = 0 then 1 else 0 *) *)
+  (*     change [ *)
+  (*         CallDir("not",x,0) *)
+  (* ] *)
+
   | CallAsm (vars, op) -> change [CallAsm (var :: vars, op)]
   | Load (t, s, d) -> change [Load (t, s, 0, d)]
   | Store (t, s, d) -> change [Store (t, s, 0, d)]
@@ -343,7 +363,8 @@ let emit_normal functions oc =
   let newfunc = List.map snd ans in  *)
   let lis = List.map register_alloc_fun functions in
   let lis = List.map (List.map reg2regstr) lis in
-  List.iter (List.iter (emit_sugar oc)) lis
+  let ch = record (List.concat lis) in 
+  List.iter (List.iter (emit_sugar oc ch)) lis
 
 let asm_emit p func oc =
   (* let _ = Printf.fprintf oc "\tjump main\n" in *)
@@ -361,5 +382,5 @@ let asm_emit p func oc =
   let _ = Printf.fprintf oc "\tstore %%r31,%%fp,1\n" in
   let p = register_alloc_tmp () (virtual_to_var p var [] []) in
   let p = List.map reg2regstr (fst p) in
-  let _ = List.iter (emit_sugar oc) p in
+  let _ = List.iter (emit_sugar oc (fun x -> x)) p in
   Printf.fprintf oc "\tend"
