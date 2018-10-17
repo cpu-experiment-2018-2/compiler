@@ -39,7 +39,7 @@ type primitive =
   | Neg
   | FNeg
   | Not
-[@@deriving show]
+[@@deriving show, ord]
 
 type op = Primitive of primitive | ArrayPut of Type.t | ArrayGet of Type.t
 [@@deriving show]

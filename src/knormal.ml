@@ -10,15 +10,31 @@ type 'a u =
   | Let of var * 'a u * 'a u * 'a
   | Var of var * 'a
   | LetRec of 'a fundef * 'a u * 'a
+  | LetTuple of var list * var * 'a u * 'a
   | App of var * var list * 'a
   | Tuple of var list * 'a
-  | LetTuple of var list * var * 'a u * 'a
 [@@deriving show]
 
 and 'a fundef = {f: var; args: var list; body: 'a u; info: 'a}
 [@@deriving show]
 
 type t = debug u [@@deriving show]
+
+let rec apply f e =
+  match e with
+  | Const _ as self -> self
+  | Op (op, vars, d) -> Op (op, List.map f vars, d)
+  | If (cmp, x, y, e1, e2, d) -> If (cmp, f x, f y, apply f e1, apply f e2, d)
+  | Let (var, e1, e2, d) -> Let (var, apply f e1, apply f e2, d)
+  | Var (var, d) -> Var (f var, d)
+  | LetRec (fd, e1, d) ->
+      LetRec
+        ( {fd with f= f fd.f; args= List.map f fd.args; body= apply f fd.body}
+        , apply f e1
+        , d )
+  | App (var, vars, d) -> App (f var, List.map f vars, d)
+  | Tuple (vars, d) -> Tuple (List.map f vars, d)
+  | LetTuple (vars, v, e1, d) -> LetTuple (List.map f vars, f v, apply f e1, d)
 
 let erase var = List.filter (fun x -> x.name <> var.name)
 
@@ -28,7 +44,7 @@ let rec myprint k indent =
   let rec id x =
     if x = 0 then ()
     else (
-      print_string "\t" ;
+      print_string "  " ;
       id (x - 1) )
   in
   print_newline () ;

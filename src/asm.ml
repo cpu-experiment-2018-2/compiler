@@ -90,15 +90,13 @@ let evacuate local saved =
   (snd a, snd b)
 
 let move v1 v2 d = Opi (Add, v1, v2, 0, d)
-let rec record (e : string u list) = 
-    let f acc s =
-        match s with
-        | SetLabel(label,Other,l) -> 
-                label :: acc
-        | _ -> acc
-    in 
-        let ans = List.fold_left f [] e in 
-        fun x -> if List.exists (fun y -> x = y) ans  then "@@"^x else x
+
+let rec record (e: string u list) =
+  let f acc s =
+    match s with SetLabel (label, Other, l) -> label :: acc | _ -> acc
+  in
+  let ans = List.fold_left f [] e in
+  fun x -> if List.exists (fun y -> x = y) ans then "@@" ^ x else x
 
 let rec emit_sugar oc ch (e: string u) =
   match e with
@@ -116,11 +114,11 @@ let rec emit_sugar oc ch (e: string u) =
         (Syntax.pos_to_str d.pos)
   | FOpi (op, rt, ra, offset, d) -> failwith "not implemented fopi"
   | SetLabel (label, Other, d) ->
-          (
-      Printf.fprintf oc "@@%s : (* %s %s *)\n" label "Local Label"  (Syntax.pos_to_str d.pos)
-          )
+      Printf.fprintf oc "@@%s : (* %s %s *)\n" label "Local Label"
+        (Syntax.pos_to_str d.pos)
   | SetLabel (label, FunCall, d) ->
-      Printf.fprintf oc "%s : (* %s %s *)\n" label "Global Fun" (Syntax.pos_to_str d.pos)
+      Printf.fprintf oc "%s : (* %s %s *)\n" label "Global Fun"
+        (Syntax.pos_to_str d.pos)
   | Load (rt, rs, offset, d) ->
       Printf.fprintf oc "\tload %s, %s ,%d (* %s *)\n" rt rs offset
         (Syntax.pos_to_str d.pos)
@@ -131,11 +129,14 @@ let rec emit_sugar oc ch (e: string u) =
       Printf.fprintf oc "\tcmpd %s,%s(* %s *)\n" ra rb
         (Syntax.pos_to_str d.pos)
   | BEQ (label, d) ->
-      Printf.fprintf oc "\tbeq %s (* %s *)\n"  (ch label)(Syntax.pos_to_str d.pos)
+      Printf.fprintf oc "\tbeq %s (* %s *)\n" (ch label)
+        (Syntax.pos_to_str d.pos)
   | BLE (label, d) ->
-      Printf.fprintf oc "\tble %s (* %s *)\n" (ch label) (Syntax.pos_to_str d.pos)
+      Printf.fprintf oc "\tble %s (* %s *)\n" (ch label)
+        (Syntax.pos_to_str d.pos)
   | Jump (label, d) ->
-      Printf.fprintf oc "\tjump %s (* %s *)\n" (ch label) (Syntax.pos_to_str d.pos)
+      Printf.fprintf oc "\tjump %s (* %s *)\n" (ch label)
+        (Syntax.pos_to_str d.pos)
   | In (rt, d) ->
       Printf.fprintf oc "\tinuh %s (* %s *)\n" rt (Syntax.pos_to_str d.pos) ;
       Printf.fprintf oc "\tinul %s (* %s *)\n" rt (Syntax.pos_to_str d.pos) ;
@@ -151,7 +152,8 @@ let rec emit_sugar oc ch (e: string u) =
       Printf.fprintf oc "\tout%s %s (* %s *)\n" s rt (Syntax.pos_to_str d.pos)
   | BLR -> Printf.fprintf oc "\tblr\n"
   | BL (label, d) ->
-      Printf.fprintf oc "\tbl %s (* %s *)\n" (ch label) (Syntax.pos_to_str d.pos)
+      Printf.fprintf oc "\tbl %s (* %s *)\n" (ch label)
+        (Syntax.pos_to_str d.pos)
   | CallAsm ([x; y], op) -> Printf.fprintf oc "\t%s %s,%s \n" op x y
   | CallAsm ([x; y; z], op) -> Printf.fprintf oc "\t%s %s,%s,%s \n" op x y z
 
@@ -208,8 +210,8 @@ let rec conv (order: debug Virtual.u) var local saved =
   (*     change [ *)
   (*         CallDir("not",x,0) *)
   (* ] *)
-
-  | CallAsm (vars, op) -> change [CallAsm (var :: vars, op)]
+  | CallAsm (vars, op) ->
+      change [CallAsm (var :: vars, op)]
   | Load (t, s, d) -> change [Load (t, s, 0, d)]
   | Store (t, s, d) -> change [Store (t, s, 0, d)]
   | If (cmp, x, y, tr, fa, d) ->
@@ -363,7 +365,7 @@ let emit_normal functions oc =
   let newfunc = List.map snd ans in  *)
   let lis = List.map register_alloc_fun functions in
   let lis = List.map (List.map reg2regstr) lis in
-  let ch = record (List.concat lis) in 
+  let ch = record (List.concat lis) in
   List.iter (List.iter (emit_sugar oc ch)) lis
 
 let asm_emit p func oc =
@@ -377,10 +379,11 @@ let asm_emit p func oc =
   let _ = Printf.fprintf oc "main:\n" in
   let _ = Printf.fprintf oc "\tli %%fp,%d\n" 0 in
   let _ = Printf.fprintf oc "\tli %%r31,%d\n" 0 in
-  let _ = Printf.fprintf oc "\tli %%sp,%d\n" (List.length local + 2 + 0) in
+  let _ = Printf.fprintf oc "\tli %%sp,%d\n" (List.length local + 2) in
   let _ = Printf.fprintf oc "\tstore %%fp,%%fp,0\n" in
   let _ = Printf.fprintf oc "\tstore %%r31,%%fp,1\n" in
   let p = register_alloc_tmp () (virtual_to_var p var [] []) in
   let p = List.map reg2regstr (fst p) in
-  let _ = List.iter (emit_sugar oc (fun x -> x)) p in
+  let ch = record p in
+  let _ = List.iter (emit_sugar oc ch) p in
   Printf.fprintf oc "\tend"

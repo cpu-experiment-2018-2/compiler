@@ -120,7 +120,7 @@ let instanciate_builtin name =
   | "create_array" ->
       let s = Type.genvar () in
       TyFun ([TyInt; TyVar s], TyArray (TyVar s))
-  |  "Obj.magic" ->  
+  | "Obj.magic" ->
       let s = Type.genvar () in
       let t = Type.genvar () in
       TyFun ([TyVar s], TyVar t)
