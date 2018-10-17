@@ -50,40 +50,42 @@ type 'reg u =
 
 type var_or_reg = Reg of int | Var of var
 
-let linkreg = Reg 31
+let linkreg = 31
 
-let framep = Reg 2
+let framep = 2
 
-let stackp = Reg 1
+let stackp = 1
 
-let evacuate local =
+let move reg1 reg2 = Opi (Add, reg1, reg2, 0, tmp_debug)
+
+let proepi d localsize =
+  ( [ move framep stackp
+    ; Store (linkreg, framep, 1, d)
+    ; Opi (Add, stackp, stackp, localsize + 2, d)
+    ; Store (framep, stackp, 0, d) ]
+  , [ Load (linkreg, framep, 1, d)
+    ; Opi (Add, stackp, framep, 0, d)
+    ; Load (framep, framep, 0, d)
+    ; BLR ] )
+
+let evacuate local saved =
   let a, b =
     ( List.fold_left
         (fun (counter, orders) var ->
           ( counter + 1
-          , (var.name, Store (Var var, framep, counter, var.debug)) :: orders
-          ) )
+          , if not (List.exists (fun x -> x.name = var.name) saved) then
+              (var.name, Store (Var var, Reg framep, counter, var.debug))
+              :: orders
+            else orders ) )
         (2, []) local
     , List.fold_left
         (fun (counter, orders) var ->
           ( counter + 1
-          , (var.name, Load (Var var, framep, counter, var.debug)) :: orders )
-          )
+          , (var.name, Load (Var var, Reg framep, counter, var.debug))
+            :: orders ) )
         (2, []) local )
   in
   (snd a, snd b)
-
-type pro = var u list
-
-type 'reg routine = label * 'reg u list
-
-type 'reg p = 'reg routine list
-
-type 'a program = 'a p * 'a p
-
-type var_program = Syntax.var program
-
-type t = int program
 
 let move v1 v2 d = Opi (Add, v1, v2, 0, d)
 
@@ -171,7 +173,7 @@ let reg2regstr =
       | 31 -> "%lr"
       | _ -> "%r" ^ string_of_int x )
 
-let rec conv (order: debug Virtual.u) var functions local =
+let rec conv (order: debug Virtual.u) var local saved =
   let change = List.map var2var_or_im in
   match order with
   | Nop x -> change [Nop x]
@@ -195,11 +197,11 @@ let rec conv (order: debug Virtual.u) var functions local =
       let t = "label" ^ Syntax.genvar () in
       let p1 =
         SetLabel (sy ^ ".if.true", Other, d)
-        :: virtual_to_var tr functions var local
+        :: virtual_to_var tr var local saved
       in
       let p2 =
         SetLabel (sy ^ ".if.false", Other, d)
-        :: virtual_to_var fa functions var local
+        :: virtual_to_var fa var local saved
         @ [Jump (t, d)]
       in
       Cmpd (Var x, Var y, d)
@@ -210,15 +212,19 @@ let rec conv (order: debug Virtual.u) var functions local =
   | Var (x, d) -> change [Opi (Add, var, x, 0, d)]
   | CallDir (label, args, d) ->
       let _ = Printf.printf "call %s\n" label in
-      let func = List.find (fun x -> x.label = label) functions in
-      let before, after = evacuate local in
+      let before, after = evacuate local saved in
       let b1, a1 = (List.map snd before, List.map snd after) in
+      let c = ref 2 in
       let ops =
-        List.map2 (fun x y -> Opi (Add, Var x, Var y, 0, d)) func.args args
+        List.map
+          (fun y ->
+            c := !c + 1 ;
+            Opi (Add, Reg !c, Var y, 0, d) )
+          args
       in
       b1 @ ops
       @ [BL (label, d)]
-      @ [Opi (Add, Var var, Var func.ret, 0, d)]
+      @ [Opi (Add, Var var, Reg 3, 0, d)]
       @ ( match List.find_opt (fun (x, y) -> x = var.name) before with
         | Some (x, y) -> [y]
         | None -> [] )
@@ -228,29 +234,62 @@ let rec conv (order: debug Virtual.u) var functions local =
   | In (reg, d) -> change [In (reg, d)]
   | _ -> failwith (Virtual.show_tmp order)
 
-and virtual_to_var e functions ret local =
+and virtual_to_var e ret local saved =
   match e with
-  | Let (var, order, v) ->
-      conv order var functions local @ virtual_to_var v functions ret local
-  | Ans order -> conv order ret functions local
+  | Let (var, order, v) -> (
+    match order with
+    | CallDir _ ->
+        conv order var local saved @ virtual_to_var v ret (local @ [var]) local
+    | _ ->
+        conv order var local saved @ virtual_to_var v ret (local @ [var]) saved
+    )
+  | Ans order -> conv order ret local saved
 
 let ( >>= ) (name, env) f = f (name, env)
 
-let register_alloc_tmp =
+let register_alloc_fun (func: Virtual.fundef) =
+  let c = ref 2 in
   let r = ref [] in
-  let find_or =
-    let c = ref 2 in
-    fun name ->
-      match name with
-      | Var name -> (
-        match List.find_opt (fun (x, y) -> x = name.name) !r with
-        | Some (x, y) -> y
-        | None ->
-            c := !c + 1 ;
-            let _ = if !c = 31 then c := 32 else () in
-            r := (name.name, !c) :: !r ;
-            !c )
-      | Reg x -> x
+  let find_or name =
+    match name with
+    | Var name -> (
+      match List.find_opt (fun (x, y) -> x = name.name) !r with
+      | Some (x, y) -> y
+      | None ->
+          c := !c + 1 ;
+          let _ = if !c = 31 then c := 32 else () in
+          r := (name.name, !c) :: !r ;
+          !c )
+    | Reg x -> x
+  in
+  let _ = List.map (fun x -> find_or (Var x)) func.args in
+  let _ = (fun x -> find_or (Var x)) func.ret in
+  let pro, epi = proepi tmp_debug (List.length func.local) in
+  let body =
+    List.map (apply find_or) (virtual_to_var func.body func.ret func.args [])
+  in
+  let body =
+    (SetLabel (func.label, FunCall, tmp_debug) :: pro)
+    @ body
+    @ [move 3 (find_or (Var func.ret)) tmp_debug]
+    @ epi
+  in
+  body
+
+let register_alloc_tmp () =
+  let c = ref 2 in
+  let r = ref [] in
+  let find_or name =
+    match name with
+    | Var name -> (
+      match List.find_opt (fun (x, y) -> x = name.name) !r with
+      | Some (x, y) -> y
+      | None ->
+          c := !c + 1 ;
+          let _ = if !c = 31 then c := 32 else () in
+          r := (name.name, !c) :: !r ;
+          !c )
+    | Reg x -> x
   in
   let rec f l =
     match l with
@@ -280,38 +319,37 @@ let register_alloc_tmp =
         | SetLabel (s, t, d) -> SetLabel (s, t, d) )
         :: f y
   in
-  f
-
-let move reg1 reg2 = Opi (Add, reg1, reg2, 0, tmp_debug)
-
-let proepi d localsize =
-  ( [ move framep stackp
-    ; Store (linkreg, framep, 1, d)
-    ; Opi (Add, stackp, stackp, localsize + 2, d)
-    ; Store (framep, stackp, 0, d) ]
-  , [ Load (linkreg, framep, 1, d)
-    ; Opi (Add, stackp, framep, 0, d)
-    ; Load (framep, framep, 0, d)
-    ; BLR ] )
+  fun l ->
+    let ans = f l in
+    (ans, !r)
 
 let emit_normal functions oc =
-  let lis =
+  (* let lis =
     List.map
       (fun x ->
         let pro, epi = proepi tmp_debug (List.length x.local) in
-        SetLabel (x.label, FunCall, tmp_debug)
-        :: (pro @ virtual_to_var x.body functions x.ret x.local)
-        @ epi )
+        (SetLabel (x.label, FunCall, tmp_debug)
+        :: (pro @ virtual_to_var x.body functions x.ret x.local)  
+        @ [move (Reg(3)) (Var(x.ret))] @  epi , x))
       functions
   in
-  let lis = List.map register_alloc_tmp lis in
+  let ans = List.map (fun (orders,func) -> 
+      let ans,map = (register_alloc_tmp()) orders
+      in 
+      (ans,funcmap map func)
+      )  
+      lis in
+  let lis = List.map fst ans in  
+  let newfunc = List.map snd ans in  *)
+  let lis = List.map register_alloc_fun functions in
   let lis = List.map (List.map reg2regstr) lis in
   List.iter (List.iter (emit_sugar oc)) lis
 
 let asm_emit p func oc =
-  let _ = Printf.fprintf oc "\tjump main\n" in
+  (* let _ = Printf.fprintf oc "\tjump main\n" in *)
   (* let _ = emit_normal Virtual.globals oc in *)
-  let _ = emit_normal (Virtual.globals @ func) oc in
+  (* let newfunc = emit_normal (Virtual.globals @ func) oc in *)
+  let newfunc = emit_normal func oc in
   let local = collect_local p in
   let var = {name= Syntax.genvar (); debug= tmp_debug; ty= TyInt} in
   let local = var :: local in
@@ -321,9 +359,7 @@ let asm_emit p func oc =
   let _ = Printf.fprintf oc "\tli %%sp,%d\n" (List.length local + 2 + 0) in
   let _ = Printf.fprintf oc "\tstore %%fp,%%fp,0\n" in
   let _ = Printf.fprintf oc "\tstore %%r31,%%fp,1\n" in
-  let p =
-    register_alloc_tmp (virtual_to_var p (func @ Virtual.globals) var local)
-  in
-  let p = List.map reg2regstr p in
+  let p = register_alloc_tmp () (virtual_to_var p var [] []) in
+  let p = List.map reg2regstr (fst p) in
   let _ = List.iter (emit_sugar oc) p in
   Printf.fprintf oc "\tend"

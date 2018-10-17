@@ -134,16 +134,17 @@ let globals =
                , v1.debug )
            , Ans (Var (v, v.debug)) )
      ; ret= v
-     ; local= [] })
-  ; (let v = tmp_var () in
-     { label= "float_of_int"
-     ; args= [v]
-     ; body= Let (v, CallAsm ([v], "itof"), Ans (Var (v, v.debug)))
-     ; ret= v
-     ; local= [] })
-  ; (let v = tmp_var () in
-     { label= "int_of_float"
-     ; args= [v]
-     ; body= Let (v, CallAsm ([v], "ftoi"), Ans (Var (v, v.debug)))
-     ; ret= v
      ; local= [] }) ]
+
+(* ; (let v = tmp_var () in *)
+(*    { label= "float_of_int" *)
+(*    ; args= [v] *)
+(*    ; body= Let (v, CallAsm ([v], "itof"), Ans (Var (v, v.debug))) *)
+(*    ; ret= v *)
+(*    ; local= [] }) *)
+(* ; (let v = tmp_var () in *)
+(*    { label= "int_of_float" *)
+(*    ; args= [v] *)
+(*    ; body= Let (v, CallAsm ([v], "ftoi"), Ans (Var (v, v.debug))) *)
+(*    ; ret= v *)
+(*    ; local= [] }) ] *)

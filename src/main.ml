@@ -42,6 +42,7 @@ let lexbuf oc l init =
         func
     else ()
   in
+  let p = Regalloc.f p in
   Asm.asm_emit p func oc
 
 let init = 0
