@@ -8,7 +8,7 @@ let show_knormal = false
 
 let show_alpha = false
 
-let show_anormal = true 
+let show_anormal = true
 
 let show_optimized = true
 
@@ -16,11 +16,10 @@ let show_closure = false
 
 let show_virtual = false
 
-let optimize p = 
-  p |> CseElimination.f |> RemoveLet.f 
-let rec optimtime x p = 
-  if x = 0 then p else 
-  optimtime (x-1) (optimize p) 
+let optimize p = p |> CseElimination.f |> RemoveLet.f
+
+let rec optimtime x p = if x = 0 then p else optimtime (x - 1) (optimize p)
+
 let lexbuf oc l init =
   let p = Parser.top_exp Lexer.token l in
   let _ = print_newline () in
@@ -38,7 +37,7 @@ let lexbuf oc l init =
   let p = Anormal.f p in
   let _ = print_string "\nanormalized\n" in
   let _ = if show_anormal then Knormal.myprint p 0 else () in
-  let p = optimtime 5 p in  
+  let p = optimtime 5 p in
   let _ = print_string "\noptimized\n" in
   let _ = if show_optimized then Knormal.myprint p 0 else () in
   let p = Closure.f p in

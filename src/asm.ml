@@ -237,11 +237,19 @@ let rec conv (order: debug Virtual.u) var local saved =
       let before, after = evacuate local saved in
       let b1, a1 = (List.map snd before, List.map snd after) in
       let c = ref 2 in
+      let find_var var local =
+        let rec inner li acc =
+          match li with
+          | [] -> failwith ("unsaved local variables " ^ var.name)
+          | x :: y -> if x.name = var.name then acc else inner y (acc + 1)
+        in
+        inner local 2
+      in
       let ops =
         List.map
           (fun y ->
             c := !c + 1 ;
-            Opi (Add, Reg !c, Var y, 0, d) )
+            Load (Reg !c, Reg framep, find_var y local, d) )
           args
       in
       b1 @ ops

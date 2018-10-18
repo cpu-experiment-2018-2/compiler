@@ -86,7 +86,10 @@ rule token = parse
     { SEMICOLON }
 | eof
     { EOF }
-| lower (digit|lower|upper|'_')* 
+| "Obj.magic" {
+    IDENT("Obj.magic")
+}
+| (lower) (digit|lower|upper|'_')* 
     { IDENT(Lexing.lexeme lexbuf) }
 | _
     { failwith
