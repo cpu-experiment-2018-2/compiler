@@ -115,7 +115,7 @@ let builtin_function' =
     , let s = Type.genvar () in
       ([s], [TyInt; TyVar s], TyArray (TyVar s)) ) ]
 
-let instanciate_builtin name =
+let instanciate_builtin name varenv =
   match name with
   | "create_array" ->
       let s = Type.genvar () in
@@ -128,14 +128,16 @@ let instanciate_builtin name =
     try
       let a, b, c = List.assoc name builtin_function' in
       TyFun (b, c)
-    with _ -> raise (TypingError ("unbound " ^ name))
+    with _ ->
+      if List.exists (fun x -> x.name = name) varenv then TyInt
+      else raise (TypingError ("unbound " ^ name))
 
-let subst_var sigma v =
+let subst_var sigma v varenv =
   let (TyVar tyvar) = v.ty in
   match List.find_opt (fun (x, y) -> x = tyvar) sigma with
   | Some (var, ty) -> {v with ty}
   | None ->
-      let ty = instanciate_builtin v.name in
+      let ty = instanciate_builtin v.name varenv in
       {v with ty}
 
 let rec gather_eq' type_env e =
@@ -208,7 +210,7 @@ let rec gather_eq' type_env e =
     with
     | Some (str, ty) -> (ty, [get_eq ty name.ty d])
     | None ->
-        let ty = instanciate_builtin name.name in
+        let ty = instanciate_builtin name.name [] in
         (ty, [get_eq ty name.ty d]) )
   | Tuple (ts, d) ->
       let res = List.map gather_eq ts in
@@ -231,32 +233,40 @@ let rec gather_eq' type_env e =
       let alpha = TyVar (Type.genvar ()) in
       (alpha, get_eq (TyFun (ts, alpha)) t1 d :: (c1 @ cs))
 
-let rec subst_ast sigma s =
-  let f = subst_ast sigma in
+let rec subst_ast sigma varenv s =
+  let f = subst_ast sigma varenv in
   let g = ty_subst sigma in
   match s with
   | Const _ as self -> self
   | Op (op, ts, d) -> Op (op, List.map f ts, d)
   | If (t0, t1, t2, d) -> If (f t0, f t1, f t2, d)
-  | Let (var, t0, t1, d) -> Let (subst_var sigma var, f t0, f t1, d)
-  | Var (var, d) -> Var (subst_var sigma var, d)
+  | Let (var, t0, t1, d) ->
+      let k = subst_ast sigma (var :: varenv) in
+      Let (subst_var sigma var varenv, f t0, k t1, d)
+  | Var (var, d) -> Var (subst_var sigma var varenv, d)
   | LetRec (fundef, t0, d) ->
       LetRec
         ( { fundef with
-            f= subst_var sigma fundef.f
-          ; args= List.map (subst_var sigma) fundef.args
-          ; body= subst_ast sigma fundef.body }
-        , f t0
+            f= subst_var sigma fundef.f varenv
+          ; args= List.map (fun x -> subst_var sigma x varenv) fundef.args
+          ; body=
+              subst_ast sigma ((fundef.f :: fundef.args) @ varenv) fundef.body
+          }
+        , subst_ast sigma (fundef.f :: varenv) t0
         , d )
   | App (t0, ts, d) -> App (f t0, List.map f ts, d)
   | Tuple (ts, d) -> Tuple (List.map f ts, d)
   | LetTuple (vars, t0, t1, d) ->
-      LetTuple (List.map (subst_var sigma) vars, f t0, f t1, d)
+      LetTuple
+        ( List.map (fun x -> subst_var sigma x varenv) vars
+        , f t0
+        , subst_ast sigma (vars @ varenv) t1
+        , d )
 
 let f e =
   let ty, equations = gather_eq' [] e in
   let _ = print_string "get_equations\n" in
   let sigma = ty_unify equations in
   let _ = print_string "get_subst\n" in
-  let e = subst_ast sigma e in
+  let e = subst_ast sigma [] e in
   e

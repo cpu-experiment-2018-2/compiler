@@ -18,7 +18,9 @@ let rec cseEliminate map e =
       If (cmp, v1, v2, cseEliminate map e1, cseEliminate map e2, d)
   | Let (var, Op (Primitive x, vars, d1), e2, d2) -> (
     match M.find_opt (x, get_str vars) map with
-    | Some y -> Let (var, Var (y, d1), e2, d2)
+    | Some y ->
+        let _ = Printf.printf "found cse %s" y.name in
+        Let (var, Var (y, d1), e2, d2)
     | None ->
         let newmap = M.add (x, get_str vars) var map in
         Let (var, Op (Primitive x, vars, d1), cseEliminate newmap e2, d2) )
