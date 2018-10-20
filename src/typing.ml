@@ -98,6 +98,10 @@ let builtin_function' =
   ; ("read_int", ([], [TyUnit], TyInt))
   ; ("read_float", ([], [TyUnit], TyFloat))
   ; ("fabs", ([], [TyFloat], TyFloat))
+  ; ("reduction", ([], [TyFloat], TyFloat))
+  ; ("kernel_cos", ([], [TyFloat], TyFloat))
+  ; ("kernel_sin", ([], [TyFloat], TyFloat))
+  ; ("kernel_atan", ([], [TyFloat], TyFloat))
   ; ("fsqr", ([], [TyFloat], TyFloat))
   ; ("fhalf", ([], [TyFloat], TyFloat))
   ; ("fisneg", ([], [TyFloat], TyBool))
@@ -109,6 +113,7 @@ let builtin_function' =
   ; ("tan", ([], [TyFloat], TyFloat))
   ; ("atan", ([], [TyFloat], TyFloat))
   ; ("sqrt", ([], [TyFloat], TyFloat))
+  ; ("invsqrt", ([], [TyFloat], TyFloat))
   ; ("float_of_int", ([], [TyInt], TyFloat))
   ; ("int_of_float", ([], [TyFloat], TyInt))
   ; ( "create_array"

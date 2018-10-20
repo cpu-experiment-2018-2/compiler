@@ -10,6 +10,8 @@ let pos_to pos =
 
 let tmp_debug = {pos= Global}
 
+let alpha () = {name= Syntax.genvar (); debug= tmp_debug; ty= TyInt}
+
 let iop_to_str = function
   | Mul -> "mul"
   | Add -> "add"
@@ -189,6 +191,8 @@ let reg2regstr =
       | 31 -> "%lr"
       | _ -> "%r" ^ string_of_int x )
 
+let al = alpha ()
+
 let rec conv (order: debug Virtual.u) var local saved =
   let change = List.map var2var_or_im in
   match order with
@@ -205,13 +209,13 @@ let rec conv (order: debug Virtual.u) var local saved =
   | Op (Primitive FDiv, [x; y], d) -> change [FOp (Div, var, x, y, d)]
   | Op (Primitive Neg, [x], d) ->
       change [Li (var, 0, d); Op (Sub, var, var, x, d)]
-  (* | Op (Primitive Not, [x], d) -> *)
-  (*         (* if x = 0 then 1 else 0 *) *)
-  (*     change [ *)
-  (*         CallDir("not",x,0) *)
-  (* ] *)
-  | CallAsm (vars, op) ->
-      change [CallAsm (var :: vars, op)]
+  | Op (Primitive Not, [x], d) ->
+      conv (CallDir ("not", [x], d)) var local saved
+  | Op (ArrayPut ty, [arr; idx; elem], d) ->
+      change [Op (Add, al, arr, idx, d); Store (elem, al, 0, d)]
+  | Op (ArrayGet ty, [arr; idx], d) ->
+      change [Op (Add, al, arr, idx, d); Load (var, al, 0, d)]
+  | CallAsm (vars, op) -> change [CallAsm (var :: vars, op)]
   | Load (t, s, d) -> change [Load (t, s, 0, d)]
   | Store (t, s, d) -> change [Store (t, s, 0, d)]
   | If (cmp, x, y, tr, fa, d) ->
@@ -294,7 +298,7 @@ let register_alloc_fun (func: Virtual.fundef) =
   in
   let _ = List.map (fun x -> find_or (Var x)) func.args in
   let _ = (fun x -> find_or (Var x)) func.ret in
-  let pro, epi = proepi tmp_debug (List.length func.local) in
+  let pro, epi = proepi tmp_debug func.local in
   let body =
     List.map (apply find_or) (virtual_to_var func.body func.ret func.args [])
   in
@@ -383,11 +387,17 @@ let asm_emit p func oc =
   let newfunc = emit_normal func oc in
   let local = collect_local p in
   let var = {name= Syntax.genvar (); debug= tmp_debug; ty= TyInt} in
-  let local = var :: local in
+  let offset = 3 in
+  let memory_start = 500 * 1000 in
+  let local = local + 3 in
   let _ = Printf.fprintf oc "main:\n" in
-  let _ = Printf.fprintf oc "\tli %%fp,%d\n" 0 in
+  let _ = Printf.fprintf oc "\tli %%fp,%d\n" offset in
   let _ = Printf.fprintf oc "\tli %%r31,%d\n" 0 in
-  let _ = Printf.fprintf oc "\tli %%sp,%d\n" (List.length local + 2) in
+  let _ = Printf.fprintf oc "\tli %%r0,%d\n" 0 in
+  let _ = Printf.fprintf oc "\tli %%r3,%d\n" memory_start in
+  let _ = Printf.fprintf oc "\tstore %%r3, %%r0,%d\n" 0 in
+  let _ = Printf.fprintf oc "\tli %%sp,%d\n" (local + 2 + offset) in
+  let _ = Printf.fprintf oc "\tstore %%fp,%%fp,0\n" in
   let _ = Printf.fprintf oc "\tstore %%fp,%%fp,0\n" in
   let _ = Printf.fprintf oc "\tstore %%r31,%%fp,1\n" in
   let p = register_alloc_tmp () (virtual_to_var p var [] []) in

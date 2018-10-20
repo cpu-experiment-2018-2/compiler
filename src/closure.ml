@@ -18,6 +18,27 @@ type 'a u =
 and 'a fundef = {f: var; args: var list; fv: var list; body: 'a u; info: 'a}
 [@@deriving show]
 
+let remove fv known =
+  List.filter
+    (fun x ->
+      not
+        (List.exists
+           (fun y -> y = x.name)
+           (known @ List.map fst Typing.builtin_function')) )
+    fv
+
+(* let rec fv =  function *)
+(* | Const(_) -> [] *)
+(* | Op(_,y,_) ->  y *)
+(* | If(_,x,y,e1,e2,_)  ->   *)
+(*   x::y::(fv e1) @ (fv e2) *)
+(* | Let(var, e1,e2,_) ->  *)
+(*   fv e1 @ (remove (fv e2) [var.name]) *)
+(* | Var(x,d) -> [x] *)
+(* | Closure (fundef , d) ->  *)
+(*  *)
+(*  *)
+
 type t = debug u [@@deriving show]
 
 let (toplevel: debug fundef list ref) = ref []
@@ -28,15 +49,6 @@ let find_toplevel var =
   match List.find_opt (fun x -> x.f.name = var.name) !toplevel with
   | None -> List.exists (fun x -> fst x = var.name) Typing.builtin_function'
   | Some x -> true
-
-let remove fv known =
-  List.filter
-    (fun x ->
-      not
-        (List.exists
-           (fun y -> y = x.name)
-           (known @ List.map fst Typing.builtin_function')) )
-    fv
 
 let f =
   let _ = toplevel := [] in

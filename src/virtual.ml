@@ -42,15 +42,15 @@ and 'a prog = string * 'a v
 type t = Syntax.debug v [@@deriving show]
 
 type fundef =
-  {label: string; args: var list; body: debug v; ret: var; local: var list}
+  {label: string; args: var list; body: debug v; ret: var; local: int}
 
 let unique left right = left @ right
 
 let rec collect_local x =
   match x with
-  | Ans (If (_, x, y, e1, e2, d)) -> collect_local e1 @ collect_local e2
-  | Ans _ -> []
-  | Let (x, x1, x2) -> (x :: collect_local (Ans x1)) @ collect_local x2
+  | Ans (If (_, x, y, e1, e2, d)) -> max (collect_local e1) (collect_local e2)
+  | Ans _ -> 0
+  | Let (x, x1, x2) -> 1 + collect_local (Ans x1) + collect_local x2
 
 let rec concat var e1 e2 =
   match e1 with
@@ -67,7 +67,7 @@ let rec closure_to_virtual' (e: Closure.t) =
   | Op (op, l, d) -> Ans (Op (op, l, d))
   | If (cmp, x, y, e1, e2, d) -> (
     match x.ty with
-    | Type.TyBool | Type.TyInt ->
+    | Type.TyBool | Type.TyInt | Type.TyFloat ->
         Ans (If (cmp, x, y, closure_to_virtual e1, closure_to_virtual e2, d))
     | _ -> failwith "equality is only bool and int" )
   | Let (var, e1, e2, d) ->
@@ -95,56 +95,11 @@ let rec g_last_var = function
 let rec function_to_virtual (fundef: debug Closure.fundef) =
   let body = closure_to_virtual' fundef.body in
   let body, last_var = g_last_var body in
-  let localvars = collect_local body in
+  let l = collect_local body in
   { label= fundef.f.name
   ; args= fundef.args
   ; body
   ; ret= last_var
-  ; local= fundef.args @ localvars }
+  ; local= l + List.length fundef.args }
 
 let f (x, y) = (closure_to_virtual' x, List.map function_to_virtual y)
-
-let globals =
-  [ (let v = tmp_var () in
-     { label= "print_int"
-     ; args= [v]
-     ; body= Ans (Out (v, v.debug))
-     ; ret= v
-     ; local= [] })
-  ; (let v = tmp_var () in
-     { label= "print_char"
-     ; args= [v]
-     ; body= Ans (OutPos (v, LL, v.debug))
-     ; ret= v
-     ; local= [] })
-  ; (let v2 = tmp_var () in
-     let v1 = tmp_var () in
-     let v = tmp_var () in
-     { label= "fless"
-     ; args= [v1; v2]
-     ; body=
-         Let
-           ( v
-           , If
-               ( Knormal.LE
-               , v1
-               , v2
-               , Ans (Li (1, v1.debug))
-               , Ans (Li (0, v1.debug))
-               , v1.debug )
-           , Ans (Var (v, v.debug)) )
-     ; ret= v
-     ; local= [] }) ]
-
-(* ; (let v = tmp_var () in *)
-(*    { label= "float_of_int" *)
-(*    ; args= [v] *)
-(*    ; body= Let (v, CallAsm ([v], "itof"), Ans (Var (v, v.debug))) *)
-(*    ; ret= v *)
-(*    ; local= [] }) *)
-(* ; (let v = tmp_var () in *)
-(*    { label= "int_of_float" *)
-(*    ; args= [v] *)
-(*    ; body= Let (v, CallAsm ([v], "ftoi"), Ans (Var (v, v.debug))) *)
-(*    ; ret= v *)
-(*    ; local= [] }) ] *)
