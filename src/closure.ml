@@ -97,8 +97,6 @@ let f =
         else if find_toplevel f then AppDir (f, args, d)
         else AppCls (f, args, d)
     | Tuple (names, d) -> Tuple (names, d)
-    | LetTuple (names, name, e, d) ->
-        LetTuple (names, name, closure_conversion e, d)
   in
   fun x ->
     let tmp = closure_conversion' x [] in

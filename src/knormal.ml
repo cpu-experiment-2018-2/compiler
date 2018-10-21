@@ -10,7 +10,6 @@ type 'a u =
   | Let of var * 'a u * 'a u * 'a
   | Var of var * 'a
   | LetRec of 'a fundef * 'a u * 'a
-  | LetTuple of var list * var * 'a u * 'a
   | App of var * var list * 'a
   | Tuple of var list * 'a
 [@@deriving show]
@@ -34,7 +33,6 @@ let rec apply f e =
         , d )
   | App (var, vars, d) -> App (f var, List.map f vars, d)
   | Tuple (vars, d) -> Tuple (List.map f vars, d)
-  | LetTuple (vars, v, e1, d) -> LetTuple (List.map f vars, f v, apply f e1, d)
 
 let erase var = List.filter (fun x -> x.name <> var.name)
 
@@ -97,7 +95,6 @@ let rec fv = function
   | Let (var, e0, e1, d) -> fv e0 @ erase var (fv e1)
   | LetRec (fundef, e1, d) ->
       erase fundef.f (erase_list fundef.args (fv fundef.body) @ fv e1)
-  | LetTuple (vars, var, e1, d) -> (var :: vars) @ erase_list vars (fv e1)
 
 let fundef_fv fundef = erase_list (fundef.f :: fundef.args) (fv fundef.body)
 
@@ -110,8 +107,7 @@ let get_debug e =
    |Var (_, d)
    |LetRec (_, _, d)
    |App (_, _, d)
-   |Tuple (_, d)
-   |LetTuple (_, _, _, d) ->
+   |Tuple (_, d) ->
       d
 
 let insert_let (e, ty) k =
@@ -191,10 +187,6 @@ let rec knormalize (e: Syntax.t) =
       let args = List.map knormalize l in
       let k, names = list_to_let args knormalize in
       (k (Tuple (names, d)), TyTuple (List.map snd args))
-  | LetTuple (vars, e1, e2, d) ->
-      insert_let (knormalize e1) (fun x ->
-          let e2, t2 = knormalize e2 in
-          (LetTuple (vars, x, e2, d), t2) )
   | App (f, l, d) ->
       (*とりあえず部分適用はないものとする*)
       let args = List.map knormalize (f :: l) in

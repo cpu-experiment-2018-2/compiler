@@ -30,7 +30,6 @@ let rec constantFold map e =
       else e
   | Const _ | App _ | Tuple _ | Var _ | Op _ -> e
   | If (cmp, x, y, e1, e2, d) -> If (cmp, x, y, g e1, g e2, d)
-  | LetTuple (vars, var, e, d) -> LetTuple (vars, var, g e, d)
   | Let (var, e1, e2, d) -> (
       let e = g e1 in
       match e with

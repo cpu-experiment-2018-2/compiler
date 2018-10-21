@@ -32,9 +32,6 @@ M[y/x]にする
           ; body= remove_alias_let env fd.body }
         , remove_alias_let env e1
         , d )
-  | LetTuple (vars, var, e1, d) ->
-      LetTuple
-        (List.map (change env) vars, change env var, remove_alias_let env e1, d)
   | _ -> Knormal.apply (change env) e
 
 let (f: Knormal.t -> Knormal.t) = remove_alias_let []

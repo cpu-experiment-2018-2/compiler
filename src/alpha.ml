@@ -35,9 +35,5 @@ let rec (g: (string * string) list -> Knormal.t -> Knormal.t) =
       LetRec (fundef, t1, d)
   | App (f, args, d) -> App (conv' f, List.map conv' args, d)
   | Tuple (names, d) -> Tuple (List.map conv' names, d)
-  | LetTuple (names, n0, t0, d) ->
-      let n0 = conv' n0 in
-      let newenv = adds env names in
-      LetTuple (List.map (conv newenv) names, n0, g newenv t0, d)
 
 let f = g []

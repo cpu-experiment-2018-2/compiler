@@ -3,6 +3,8 @@ open Closure
 
 type label = string [@@deriving show]
 
+let tmp_var () = {name= Syntax.genvar (); debug= {pos= Global}; ty= TyInt}
+
 type bitpos = LL | LH | UL | UH [@@deriving show]
 
 let mem = ref 30000
@@ -23,14 +25,13 @@ type 'a u =
   | FLi of float * 'a
   | Var of var * 'a
   | Op of op * var list * 'a
-  | Load of var * var * 'a
-  | Store of var * var * 'a
+  | Load of var * var * int * 'a
+  | Store of var * var * int * 'a
   | If of Knormal.cmp * var * var * 'a v * 'a v * 'a
   | CallDir of label * var list * 'a
   | In of var * 'a
   | Out of var * 'a
   | OutPos of var * bitpos * 'a
-  | CallAsm of var list * string
 [@@deriving show]
 
 and 'a v = Ans of 'a u | Let of var * 'a u * 'a v [@@deriving show]
@@ -79,9 +80,27 @@ let rec closure_to_virtual' (e: Closure.t) =
   (* | AppCls (var, ys, d) -> Ans (CallCls (var, ys, d))  *)
   | AppDir (var, ys, d) ->
       Ans (CallDir (var.name, ys, d))
+  (*  *)
+  | Tuple (names, d) ->
+      let ( >>= ) x f = f x in
+      tmp_var ()
+      >>= fun x ->
+      Let
+        ( x
+        , Li (List.length names, d)
+        , tmp_var ()
+          >>= fun y ->
+          Let
+            ( y
+            , CallDir ("alloc", [x], d)
+            , fst
+                (List.fold_right
+                   (fun z (acc, counter) ->
+                     ( Let (tmp_var (), Store (z, y, counter, d), acc)
+                     , counter - 1 ) )
+                   names
+                   (Ans (Var (y, d)), List.length names - 1)) ) )
   | _ -> failwith (Closure.show e)
-
-let tmp_var () = {name= Syntax.genvar (); debug= {pos= Global}; ty= TyInt}
 
 let rec g_last_var = function
   | Let (x, y, t) ->

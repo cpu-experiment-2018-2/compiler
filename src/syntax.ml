@@ -41,7 +41,11 @@ type primitive =
   | Not
 [@@deriving show, ord]
 
-type op = Primitive of primitive | ArrayPut of Type.t | ArrayGet of Type.t
+type op =
+  | Primitive of primitive
+  | ArrayPut of Type.t
+  | ArrayGet of Type.t
+  | Projection of int * int * Type.t
 [@@deriving show]
 
 type primitive_info = {args: ty list; ret: ty} [@@deriving show]
@@ -70,7 +74,6 @@ type 'a u =
   | LetRec of 'a fundef * 'a u * 'a
   | App of 'a u * 'a u list * 'a
   | Tuple of 'a u list * 'a
-  | LetTuple of var list * 'a u * 'a u * 'a
 [@@deriving show]
 
 and 'a fundef = {f: var; args: var list; body: 'a u; info: 'a}

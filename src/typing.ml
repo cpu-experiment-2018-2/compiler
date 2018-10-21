@@ -94,6 +94,7 @@ let builtin_function' =
   ; ("print_float", ([], [TyFloat], TyUnit))
   ; ("fless", ([], [TyFloat; TyFloat], TyBool))
   ; ("fneg", ([], [TyFloat], TyFloat))
+  ; ("div2", ([], [TyInt], TyInt))
   ; ("Obj.magic", ([], [TyInt], TyInt))
   ; ("read_int", ([], [TyUnit], TyInt))
   ; ("read_float", ([], [TyUnit], TyFloat))
@@ -152,13 +153,25 @@ let rec gather_eq' type_env e =
   | Const (CFloat _, d) -> (TyFloat, empty)
   | Const (CUnit, d) -> (TyUnit, empty)
   | Const (CBool _, d) -> (TyBool, empty)
-  | Op (ArrayGet alpha, l, d) ->
-      let [arr; idx] = l in
+  | Op (Projection (idx, all, ty), [tup], d) -> (
+      let t1, c1 = gather_eq tup in
+      match t1 with
+      | TyVar v ->
+          let rec f x =
+            if x = 0 then [] else TyVar (Type.genvar ()) :: f (x - 1)
+          in
+          let t = f all in
+          let beta = List.nth t idx in
+          (beta, get_eq ty beta d :: get_eq (TyTuple t) t1 d :: c1)
+      | TyTuple t ->
+          let beta = List.nth t idx in
+          (beta, get_eq ty beta d :: c1)
+      | _ -> raise (TypingError ("type error tuple at " ^ show_debug d)) )
+  | Op (ArrayGet alpha, [arr; idx], d) ->
       let t1, c1 = gather_eq arr in
       let t2, c2 = gather_eq idx in
       (alpha, get_eq t1 (TyArray alpha) d :: get_eq t2 TyInt d :: (c1 @ c2))
-  | Op (ArrayPut alpha, l, d) ->
-      let [arr; idx; elem] = l in
+  | Op (ArrayPut alpha, [arr; idx; elem], d) ->
       let t1, c1 = gather_eq arr in
       let t2, c2 = gather_eq idx in
       let t3, c3 = gather_eq elem in
@@ -222,14 +235,14 @@ let rec gather_eq' type_env e =
       let types = List.map fst res in
       let constraints = List.concat (List.map snd res) in
       (TyTuple types, constraints)
-  | LetTuple (names, e1, e2, d) ->
+  (* | LetTuple (names, e1, e2, d) ->
       let names_var = List.map (fun var -> var.ty) names in
       let add = List.map (fun var -> (var.name, var.ty)) names in
       let t1, c1 = gather_eq e1 in
       let ty = TyTuple names_var in
       let newenv = add @ type_env in
       let t2, c2 = gather_eq' newenv e2 in
-      (t2, get_eq t1 ty d :: (c1 @ c2))
+      (t2, get_eq t1 ty d :: (c1 @ c2)) *)
   | App (e1, e2, d) ->
       let t1, c1 = gather_eq e1 in
       let res = List.map gather_eq e2 in
@@ -243,6 +256,10 @@ let rec subst_ast sigma varenv s =
   let g = ty_subst sigma in
   match s with
   | Const _ as self -> self
+  | Op (ArrayGet t, ts, d) -> Op (ArrayGet (g t), List.map f ts, d)
+  | Op (ArrayPut t, ts, d) -> Op (ArrayPut (g t), List.map f ts, d)
+  | Op (Projection (idx, all, t), ts, d) ->
+      Op (Projection (idx, all, g t), List.map f ts, d)
   | Op (op, ts, d) -> Op (op, List.map f ts, d)
   | If (t0, t1, t2, d) -> If (f t0, f t1, f t2, d)
   | Let (var, t0, t1, d) ->
@@ -261,12 +278,6 @@ let rec subst_ast sigma varenv s =
         , d )
   | App (t0, ts, d) -> App (f t0, List.map f ts, d)
   | Tuple (ts, d) -> Tuple (List.map f ts, d)
-  | LetTuple (vars, t0, t1, d) ->
-      LetTuple
-        ( List.map (fun x -> subst_var sigma x varenv) vars
-        , f t0
-        , subst_ast sigma (vars @ varenv) t1
-        , d )
 
 let f e =
   let ty, equations = gather_eq' [] e in

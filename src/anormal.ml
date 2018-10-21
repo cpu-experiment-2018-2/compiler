@@ -18,7 +18,5 @@ let rec anormalize e =
           , selfapp (anormalize u)
           , d )
       , fun x -> x )
-  | LetTuple (vars, var, e1, d) ->
-      (LetTuple (vars, var, selfapp (anormalize e1), d), fun x -> x)
 
 let f x = selfapp (anormalize x)

@@ -48,7 +48,6 @@ type 'reg u =
   | InPos of 'reg * bitpos * Syntax.debug
   | Out of 'reg * Syntax.debug
   | OutPos of 'reg * bitpos * Syntax.debug
-  | CallAsm of 'reg list * string
   | BLR
   | BL of label * Syntax.debug
 
@@ -156,8 +155,6 @@ let rec emit_sugar oc ch (e: string u) =
   | BL (label, d) ->
       Printf.fprintf oc "\tbl %s (* %s *)\n" (ch label)
         (Syntax.pos_to_str d.pos)
-  | CallAsm ([x; y], op) -> Printf.fprintf oc "\t%s %s,%s \n" op x y
-  | CallAsm ([x; y; z], op) -> Printf.fprintf oc "\t%s %s,%s,%s \n" op x y z
 
 let rec apply f = function
   | Nop x -> Nop x
@@ -178,7 +175,6 @@ let rec apply f = function
   | Out (x, d) -> Out (f x, d)
   | InPos (x, p, d) -> InPos (f x, p, d)
   | OutPos (x, p, d) -> OutPos (f x, p, d)
-  | CallAsm (regs, op) -> CallAsm (List.map f regs, op)
   | BLR -> BLR
 
 let var2var_or_im = apply (fun x -> Var x)
@@ -211,13 +207,13 @@ let rec conv (order: debug Virtual.u) var local saved =
       change [Li (var, 0, d); Op (Sub, var, var, x, d)]
   | Op (Primitive Not, [x], d) ->
       conv (CallDir ("not", [x], d)) var local saved
+  | Op (Projection (idx, all, ty), [tup], d) -> change [Load (var, tup, idx, d)]
   | Op (ArrayPut ty, [arr; idx; elem], d) ->
       change [Op (Add, al, arr, idx, d); Store (elem, al, 0, d)]
   | Op (ArrayGet ty, [arr; idx], d) ->
       change [Op (Add, al, arr, idx, d); Load (var, al, 0, d)]
-  | CallAsm (vars, op) -> change [CallAsm (var :: vars, op)]
-  | Load (t, s, d) -> change [Load (t, s, 0, d)]
-  | Store (t, s, d) -> change [Store (t, s, 0, d)]
+  | Load (t, s, off, d) -> change [Load (t, s, off, d)]
+  | Store (t, s, off, d) -> change [Store (t, s, off, d)]
   | If (cmp, x, y, tr, fa, d) ->
       let sy = "label" ^ Syntax.genvar () in
       let t = "label" ^ Syntax.genvar () in
@@ -346,7 +342,6 @@ let register_alloc_tmp () =
         | BLR -> BLR
         | Nop d -> Nop d
         | BEQ (s, d) -> BEQ (s, d)
-        | CallAsm (vars, d) -> CallAsm (List.map find_or vars, d)
         | BLE (s, d) -> BLE (s, d)
         | Jump (s, d) -> Jump (s, d)
         | BL (s, d) -> BL (s, d)
@@ -397,8 +392,7 @@ let asm_emit p func oc =
   let _ = Printf.fprintf oc "\tli %%r3,%d\n" memory_start in
   let _ = Printf.fprintf oc "\tstore %%r3, %%r0,%d\n" 0 in
   let _ = Printf.fprintf oc "\tli %%sp,%d\n" (local + 2 + offset) in
-  let _ = Printf.fprintf oc "\tstore %%fp,%%fp,0\n" in
-  let _ = Printf.fprintf oc "\tstore %%fp,%%fp,0\n" in
+  let _ = Printf.fprintf oc "\tstore %%fp,%%sp,0\n" in
   let _ = Printf.fprintf oc "\tstore %%r31,%%fp,1\n" in
   let p = register_alloc_tmp () (virtual_to_var p var [] []) in
   let p = List.map reg2regstr (fst p) in

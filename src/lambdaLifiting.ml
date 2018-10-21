@@ -12,21 +12,18 @@ overheadは明らかにこっちのほうが小さい説があるからminrtに�
 let rec lifiting lifted_env varenv e =
   let g = lifiting lifted_env varenv in
   match e with
-  | (Const _ | Op _ | Tuple _ | LetTuple _) as self -> self
+  | (Const _ | Op _ | Tuple _) as self -> self
   | If (cmp, x, y, e1, e2, d) -> If (cmp, x, y, g e1, g e2, d)
   | Let (var, e1, e2, d) -> e
-    (* let e1 = g e1 in
+  (* let e1 = g e1 in
     match e1 with
     | LetRec(fundef, e, d) ->  *)
-  | Var (var, d) -> Var (var, d)
+  | Var (var, d) ->
+      Var (var, d)
   | LetRec (fd, e1, d) ->
       let fv = Knormal.fundef_fv fd in
-      (
       match fv with
       | [] -> LetRec (fd, e1, d)
       | _ ->
           let newenv = (fd.f.name, fv) :: lifted_env in
           LetRec ({fd with body= g e; args= fd.args @ fv}, g e1, d)
-      )
-
-
