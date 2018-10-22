@@ -5,7 +5,6 @@ external getint : float -> int = "getint"
 
 type iop = Mul | Add | Sub | Div
 
-let tmp_debug = {pos= Global}
 
 let alpha () = {name= Syntax.genvar (); debug= tmp_debug; ty= TyInt}
 
@@ -31,6 +30,7 @@ type 'reg u =
   | Nop of Syntax.debug
   | Op of iop * 'reg * 'reg * 'reg * Syntax.debug
   | Li of 'reg * int * Syntax.debug
+  | Lil of 'reg * string * Syntax.debug
   | Opi of iop * 'reg * 'reg * int * Syntax.debug
   | FOp of fop * 'reg * 'reg * 'reg * Syntax.debug
   | FOpi of fop * 'reg * 'reg * float * Syntax.debug
@@ -98,6 +98,9 @@ let rec emit_sugar oc ch (e: string u) =
   (*  Printf.fprintf oc "\tnop (* %s *)" (Syntax.pos_to_str d.pos) *)
   | Li (reg, x, d) ->
       Printf.fprintf oc "\tli %s,%d (* %s *)\n" reg x (Syntax.pos_to_str d.pos)
+  | Lil (reg, x, d) ->
+      Printf.fprintf oc "\tlil %s,%s (* %s *)\n" reg x (Syntax.pos_to_str d.pos)
+
   | Op (op, rt, ra, rb, d) ->
       Printf.fprintf oc "\t%s %s,%s,%s (* %s *)\n" (iop_to_str op) rt ra rb
         (Syntax.pos_to_str d.pos)
@@ -140,6 +143,7 @@ let rec emit_sugar oc ch (e: string u) =
 let rec apply f = function
   | Nop x -> Nop x
   | Li (var, x, d) -> Li (f var, x, d)
+  | Lil (var, x, d) -> Lil (f var, x, d)
   | Opi (iop, x, y, z, d) -> Opi (iop, f x, f y, z, d)
   | Op (op, x, y, z, d) -> Op (op, f x, f y, f z, d)
   | FOp (op, x, y, z, d) -> FOp (op, f x, f y, f z, d)

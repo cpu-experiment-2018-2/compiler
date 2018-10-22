@@ -14,7 +14,7 @@ type pos = {line: int; col: int; bol: int} [@@deriving show]
 type def = Global | Source of pos [@@deriving show]
 
 let pos_to_str = function
-  | Global -> "Global"
+  | Global -> " ? somewhere "
   | Source x -> "at line " ^ string_of_int x.line
 
 type debug = {pos: def} [@@deriving show]
@@ -81,11 +81,36 @@ and 'a fundef = {f: var; args: var list; body: 'a u; info: 'a}
 
 type t = debug u [@@deriving show]
 
+
+type g = Var of var | Int of int 
+[@@deriving show]
+let compare_g x y = 
+match x,y with
+| Var(_),Int(_) -> 1
+| Int(_),Var(_) -> -1
+| Var(x),Var(y) -> compare x.name y.name
+| Int(x),Int(y) -> compare x y
+module VarMap2 = Map.Make (struct
+  type t = g
+
+
+
+  let compare = compare_g
+
+end)
+
 module VarMap = Map.Make (struct
   type t = var
 
   let compare x y = compare x.name y.name
 end)
+
+module VarSet2 = Set.Make (struct
+  type t = g
+
+  let compare = compare_g
+end)
+
 
 module VarSet = Set.Make (struct
   type t = var
