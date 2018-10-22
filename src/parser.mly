@@ -1,6 +1,7 @@
 %{
 open Syntax
 exception ParseError
+ 
 let getdebug () = 
     let p = (Parsing.symbol_start_pos ()) in
     let pos = 
@@ -14,6 +15,13 @@ let getdebug () =
         pos = 
         Source(pos)
     }
+    let alpha() = 
+        let s = genvar() in
+        {
+            name = s;
+            debug = getdebug();
+            ty = Type.TyVar(Type.genvar());
+        }
 %}
 
 
@@ -150,19 +158,26 @@ exp:
     %prec prec_tuple
     { Tuple($1,getdebug())}
 | LET LPAREN pat RPAREN EQUAL exp IN exp
-    { LetTuple($3, $6, $8,getdebug()) }
+    { 
+
+       
+        let p =  alpha() in
+        let init = List.length $3 - 1 in
+        let all = List.length $3 in
+        let d = getdebug() in
+        let e' = List.fold_right (fun x (counter,acc) ->
+            (counter - 1, Let(x,  Op(Projection (counter,all, Type.TyVar(Type.genvar())), [Var(p,d)], d), acc,d))
+         ) 
+         $3 (init, $8)
+         in
+        Let(p,$6, snd e', d) 
+    }
 | simple_exp DOT LPAREN exp RPAREN LESS_MINUS exp
     { Op(ArrayPut (Type.TyVar(Type.genvar())),[$1; $4; $7],getdebug())}
 | exp SEMICOLON exp
 
     { 
-        let s = genvar() in
-        let tmp = {
-            name = s;
-            debug = getdebug();
-            ty = Type.TyVar(Type.genvar());
-        } in
-        Let(tmp, $1, $3 ,getdebug())}
+        Let(alpha(), $1, $3 ,getdebug())}
 | exp SEMICOLON {$1}
 | error
     {
