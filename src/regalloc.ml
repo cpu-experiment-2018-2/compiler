@@ -208,11 +208,6 @@ let put_args (f, regmap, stackmap) var reg args =
 let rec alloc var u cont (f, regmap, stackmap) last =
   let normal_live = get_livev cont in
   let nextfun_arg, liveness, flag = liveness_after_call cont in
-  let _ =
-    List.iter
-      (fun (x, y) -> print_string y.name ; print_newline ())
-      nextfun_arg
-  in
   let tar =
     match last with
     | Some id -> id
@@ -229,10 +224,7 @@ let rec alloc var u cont (f, regmap, stackmap) last =
           (* 死んでるもののうち一番インデックスが大きい物 *)
           idx
   in
-  let _ = if List.length regmap <> 27 then failwith "HOGE" else () in
-  let _ = Printf.printf "%s wants %d\n" var.name tar in
   let cur = (f, regmap, stackmap) in
-  let _ = print_string (Virtual.show (Ans u)) in
   let u, (f, regmap, stackmap) =
     match u with
     | Nop x -> (Nop x, cur)
@@ -255,18 +247,33 @@ let rec alloc var u cont (f, regmap, stackmap) last =
         , (f, regmap, stackmap) )
     | CallDir (label, vars, d) ->
         let f, regmap, stackmap = put_arg (f, regmap, stackmap) vars in
-        ( CallDir (label, List.map (fun x -> getreg_by_val x regmap) vars, d)
-        , (f, update 3 var init, stackmap) )
+        let f x =
+          f
+            (Let
+               ( 3
+               , CallDir
+                   (label, List.map (fun x -> getreg_by_val x regmap) vars, d)
+               , x ))
+        in
+        (Var (3, tmp_debug), (f, update 3 var init, stackmap))
     | CallCls (label, vars, d) ->
         let f, regmap, stackmap = put_arg (f, regmap, stackmap) vars in
         (* let (f,regmap, stackmap) = make_vars_args vars cur in *)
-        ( CallCls (label, List.map (fun x -> getreg_by_val x regmap) vars, d)
-        , (f, update 3 var init, stackmap) )
+        let f x =
+          f
+            (Let
+               ( 3
+               , CallCls
+                   (label, List.map (fun x -> getreg_by_val x regmap) vars, d)
+               , x ))
+        in
+        (Var (3, tmp_debug), (f, update 3 var init, stackmap))
     | If (cmp, x, y, e1, e2, d) ->
+        let f', regmap, stackmap =
+          make_vars_on_reg [x; y] ((fun x -> x), regmap, stackmap)
+        in
         let f1, r1, s1 = regalloc e1 ((fun x -> x), regmap, stackmap) tar in
         let f2, r2, s2 = regalloc e2 ((fun x -> x), regmap, stackmap) tar in
-        let _ = show_regmap r1 in
-        let _ = show_regmap r2 in
         let regafter =
           List.map2
             (fun (i, x) (_, y) -> if x = y then (i, x) else (i, None))
@@ -286,30 +293,29 @@ let rec alloc var u cont (f, regmap, stackmap) last =
         in
         let f1, r1, s1 = regalloc e1 ((fun x -> x), regmap, stackmap) tar in
         let f2, r2, s2 = regalloc e2 ((fun x -> x), regmap, stackmap) tar in
-        let f', regmap, (stackmap, sz) = make_vars_on_reg [x; y] cur in
+        let regafter =
+          List.map2
+            (fun (i, x) (_, y) -> if x = y then (i, x) else (i, None))
+            r1 r2
+        in
         let f x = f (f' x) in
         ( If
             ( cmp
             , getreg_by_val x regmap
             , getreg_by_val y regmap
-            , f1 (Ans (Var (tar, tmp_debug)))
-            , f2 (Ans (Var (tar, tmp_debug)))
+            , f1 (Ans (Nop tmp_debug))
+            , f2 (Ans (Nop tmp_debug))
             , d )
-        , (f, regmap, (stackmap, max (snd s2) (snd s1))) )
+        , (f, regafter, (fst stackmap, max (snd s2) (snd s1))) )
   in
   let f, regmap, stackmap =
     ((fun x -> f (Let (tar, u, x))), regmap, stackmap)
   in
-  let _ = show_regmap regmap in
   let regmap = update tar var regmap in
-  let _ = show_regmap regmap in
-  let _ = show_stackmap stackmap in
   let f, regmap, stackmap =
     if VarSet.mem var liveness then (
-      Printf.printf "%s is spilled" var.name ;
       spill var (f, regmap, stackmap) )
     else (
-      Printf.printf "%s should be forgot" var.name ;
       (f, regmap, stackmap) )
   in
   let regmap =
@@ -417,7 +423,6 @@ let rec top (main, toplevel) =
     List.map
       (fun g ->
         let body, size = convert g.body (first_reg g.args) g.args in
-        let _ = print_string (show body) in
         let body = virtual_to_var body 3 in
         let pro, epi = proepi tmp_debug (size + 2) in
         (SetLabel (g.label, FunCall, tmp_debug) :: pro) @ body @ epi )
