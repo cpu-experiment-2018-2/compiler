@@ -57,9 +57,10 @@ type tmp = (Syntax.debug, Syntax.var) u [@@deriving show]
 
 type t = (Syntax.debug, Syntax.var) v [@@deriving show]
 
-type ('a,'b) fundef = {label: string; args: 'b list; body: ('a,'b) v; ret: 'b; local: int}
+type ('a, 'b) fundef =
+  {label: string; args: 'b list; body: ('a, 'b) v; ret: 'b; local: int}
 
-type  fundef_t = (Syntax.debug , Syntax.var) fundef
+type fundef_t = (Syntax.debug, Syntax.var) fundef
 
 let unique left right = left @ right
 

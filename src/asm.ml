@@ -94,7 +94,8 @@ let rec record (e: string u list) =
 
 let rec emit_sugar oc ch (e: string u) =
   match e with
-  | Nop d -> Printf.fprintf oc "\tnop (* %s *)" (Syntax.pos_to_str d.pos)
+  | Nop d -> ()
+  (*  Printf.fprintf oc "\tnop (* %s *)" (Syntax.pos_to_str d.pos) *)
   | Li (reg, x, d) ->
       Printf.fprintf oc "\tli %s,%d (* %s *)\n" reg x (Syntax.pos_to_str d.pos)
   | Op (op, rt, ra, rb, d) ->

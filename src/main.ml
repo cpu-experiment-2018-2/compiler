@@ -20,7 +20,7 @@ let optimize p = p |> ConstantFold.f |> CseElimination.f |> RemoveLet.f
 
 let rec optimtime x p = if x = 0 then p else optimtime (x - 1) (optimize p)
 
-let lexbuf oc l init =
+let lexbuf oc l =
   let p = Parser.top_exp Lexer.token l in
   let _ = print_newline () in
   let _ = print_string "parse succeed\n" in
@@ -46,18 +46,20 @@ let lexbuf oc l init =
   let p, func = Virtual.f p in
   let _ = print_string "to virtual succeed\n" in
   let _ = if show_virtual then print_string (Virtual.show p) else () in
-  (* let _ = *)
-  (*   if show_virtual then *)
-  (*     List.iter *)
-  (*       (fun x -> *)
-  (*         print_string x.label ; *)
-  (*         print_newline () ; *)
-  (*         print_string (Virtual.show x.body) ) *)
-  (*       func *)
-  (*   else () *)
-  (* in *)
-  let p'' = Regalloc.functions (p,func) in
-  Asm.asm_emit p func oc
+  let _ =
+    if show_virtual then
+      List.iter
+        (fun x ->
+          print_string x.label ;
+          print_newline () ;
+          print_string (Virtual.show x.body) )
+        func
+    else ()
+  in
+  let p'' = Regalloc.top (p, func) in
+  Regalloc.emit p'' 3 (500 * 1000) oc
+
+(* Asm.asm_emit p func oc *)
 
 let init = 0
 
@@ -68,5 +70,5 @@ let _ =
   let ic = open_in filename in
   let oname = filename ^ ".st" in
   let oc = open_out oname in
-  let _ = lexbuf oc (Lexing.from_channel ic) init in
+  let _ = lexbuf oc (Lexing.from_channel ic) in
   print_string ("success\nassembly is outputed to " ^ oname)
