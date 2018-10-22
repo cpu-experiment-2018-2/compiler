@@ -8,15 +8,15 @@ let show_knormal = false
 
 let show_alpha = false
 
-let show_anormal = true
+let show_anormal = false
 
-let show_optimized = true
+let show_optimized = false
 
 let show_closure = false
 
-let show_virtual = false
+let show_virtual = true
 
-let optimize p = p |> CseElimination.f |> RemoveLet.f
+let optimize p = p |> ConstantFold.f |> CseElimination.f |> RemoveLet.f
 
 let rec optimtime x p = if x = 0 then p else optimtime (x - 1) (optimize p)
 
@@ -46,17 +46,17 @@ let lexbuf oc l init =
   let p, func = Virtual.f p in
   let _ = print_string "to virtual succeed\n" in
   let _ = if show_virtual then print_string (Virtual.show p) else () in
-  let _ =
-    if show_virtual then
-      List.iter
-        (fun x ->
-          print_string x.label ;
-          print_newline () ;
-          print_string (Virtual.show x.body) )
-        func
-    else ()
-  in
-  let p = Regalloc.f p in
+  (* let _ = *)
+  (*   if show_virtual then *)
+  (*     List.iter *)
+  (*       (fun x -> *)
+  (*         print_string x.label ; *)
+  (*         print_newline () ; *)
+  (*         print_string (Virtual.show x.body) ) *)
+  (*       func *)
+  (*   else () *)
+  (* in *)
+  let p'' = Regalloc.functions (p,func) in
   Asm.asm_emit p func oc
 
 let init = 0

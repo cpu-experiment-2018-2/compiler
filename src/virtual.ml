@@ -5,8 +5,6 @@ type label = string [@@deriving show]
 
 let tmp_var () = {name= Syntax.genvar (); debug= {pos= Global}; ty= TyInt}
 
-type bitpos = LL | LH | UL | UH [@@deriving show]
-
 let mem = ref 30000
 
 let get () =
@@ -19,31 +17,49 @@ let malloc size =
   mem := size + !mem ;
   tmp
 
-type 'a u =
+type ('a, 'b) u =
   | Nop of 'a
   | Li of int * 'a
   | FLi of float * 'a
-  | Var of var * 'a
-  | Op of op * var list * 'a
-  | Load of var * var * int * 'a
-  | Store of var * var * int * 'a
-  | If of Knormal.cmp * var * var * 'a v * 'a v * 'a
-  | CallDir of label * var list * 'a
-  | In of var * 'a
-  | Out of var * 'a
-  | OutPos of var * bitpos * 'a
+  | Var of 'b * 'a
+  | Op of op * 'b list * 'a
+  | Load of 'b * 'b * int * 'a
+  | Store of 'b * 'b * int * 'a
+  | If of Knormal.cmp * 'b * 'b * ('a, 'b) v * ('a, 'b) v * 'a
+  | CallDir of label * 'b list * 'a
+  | CallCls of string * 'b list * 'a
 [@@deriving show]
 
-and 'a v = Ans of 'a u | Let of var * 'a u * 'a v [@@deriving show]
+and ('a, 'b) v = Ans of ('a, 'b) u | Let of 'b * ('a, 'b) u * ('a, 'b) v
+[@@deriving show]
 
-type tmp = Syntax.debug u [@@deriving show]
 
-and 'a prog = string * 'a v
+let rec apply f f' e =
+  match e with
+  | Nop x -> Nop x
+  | Li (x, d) -> Li (x, d)
+  | FLi (x, d) -> FLi (x, d)
+  | Var (x, d) -> Var (f x, d)
+  | Op (op, vars, d) -> Op (op, List.map f vars, d)
+  | Load (x, y, off, d) -> Load (x, y, off, d)
+  | Store (x, y, off, d) -> Store (x, y, off, d)
+  | If (cmp, x, y, e1, e2, d) ->
+      If (cmp, f x, f y, apply' f f' e1, apply' f f' e2, d)
+  | CallDir (l, vars, d) -> CallDir (l, List.map f vars, d)
+  | CallCls (l, vars, d) -> CallCls (l, List.map f vars, d)
 
-type t = Syntax.debug v [@@deriving show]
+and apply' f f' e =
+  match e with
+  | Let (var, u, v) -> Let (f var, apply f f' u, apply' f f' v)
+  | Ans u -> Ans (apply f f' u)
 
-type fundef =
-  {label: string; args: var list; body: debug v; ret: var; local: int}
+type tmp = (Syntax.debug, Syntax.var) u [@@deriving show]
+
+type t = (Syntax.debug, Syntax.var) v [@@deriving show]
+
+type ('a,'b) fundef = {label: string; args: 'b list; body: ('a,'b) v; ret: 'b; local: int}
+
+type  fundef_t = (Syntax.debug , Syntax.var) fundef
 
 let unique left right = left @ right
 

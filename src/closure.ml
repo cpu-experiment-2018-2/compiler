@@ -12,7 +12,6 @@ type 'a u =
   | AppCls of var * var list * 'a
   | AppDir of var * var list * 'a
   | Tuple of var list * 'a
-  | LetTuple of var list * var * 'a u * 'a
 [@@deriving show]
 
 and 'a fundef = {f: var; args: var list; fv: var list; body: 'a u; info: 'a}
@@ -61,6 +60,9 @@ let f =
         If (cmp, n1, n2, closure_conversion e1, closure_conversion e2, d)
     | Var (name, d) -> Var (name, d)
     | LetRec (fundef, e1, d) ->
+        (* let toplevel_backup = !toplevel in *)
+        (* let e1' = closure_conversion' fundef.body (fundef_fv.f.name :: known) in *)
+        (* let zs = remove (Knormal.fv e1') (List.map (fun x -> x.name) fundef.args) in *)
         let fv = Knormal.fundef_fv fundef in
         let fv = remove fv known in
         let _ =

@@ -80,3 +80,15 @@ and 'a fundef = {f: var; args: var list; body: 'a u; info: 'a}
 [@@deriving show]
 
 type t = debug u [@@deriving show]
+
+module VarMap = Map.Make (struct
+  type t = var
+
+  let compare x y = compare x.name y.name
+end)
+
+module VarSet = Set.Make (struct
+  type t = var
+
+  let compare x y = compare x.name y.name
+end)

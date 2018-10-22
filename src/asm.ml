@@ -5,9 +5,6 @@ external getint : float -> int = "getint"
 
 type iop = Mul | Add | Sub | Div
 
-let pos_to pos =
-  match pos with UL -> "ul" | UH -> "uh" | LL -> "ll" | LH -> "lh"
-
 let tmp_debug = {pos= Global}
 
 let alpha () = {name= Syntax.genvar (); debug= tmp_debug; ty= TyInt}
@@ -44,10 +41,6 @@ type 'reg u =
   | BLE of label * Syntax.debug
   | Jump of label * Syntax.debug
   | SetLabel of string * labelType * Syntax.debug
-  | In of 'reg * Syntax.debug
-  | InPos of 'reg * bitpos * Syntax.debug
-  | Out of 'reg * Syntax.debug
-  | OutPos of 'reg * bitpos * Syntax.debug
   | BLR
   | BL of label * Syntax.debug
 
@@ -138,19 +131,6 @@ let rec emit_sugar oc ch (e: string u) =
   | Jump (label, d) ->
       Printf.fprintf oc "\tjump %s (* %s *)\n" (ch label)
         (Syntax.pos_to_str d.pos)
-  | In (rt, d) ->
-      Printf.fprintf oc "\tinuh %s (* %s *)\n" rt (Syntax.pos_to_str d.pos) ;
-      Printf.fprintf oc "\tinul %s (* %s *)\n" rt (Syntax.pos_to_str d.pos) ;
-      Printf.fprintf oc "\tinlh %s (* %s *)\n" rt (Syntax.pos_to_str d.pos) ;
-      Printf.fprintf oc "\tinll %s (* %s *)\n" rt (Syntax.pos_to_str d.pos)
-  | Out (rt, d) ->
-      Printf.fprintf oc "\toutuh %s (* %s *)\n" rt (Syntax.pos_to_str d.pos) ;
-      Printf.fprintf oc "\toutul %s (* %s *)\n" rt (Syntax.pos_to_str d.pos) ;
-      Printf.fprintf oc "\toutlh %s (* %s *)\n" rt (Syntax.pos_to_str d.pos) ;
-      Printf.fprintf oc "\toutll %s (* %s *)\n" rt (Syntax.pos_to_str d.pos)
-  | OutPos (rt, pos, d) ->
-      let s = pos_to pos in
-      Printf.fprintf oc "\tout%s %s (* %s *)\n" s rt (Syntax.pos_to_str d.pos)
   | BLR -> Printf.fprintf oc "\tblr\n"
   | BL (label, d) ->
       Printf.fprintf oc "\tbl %s (* %s *)\n" (ch label)
@@ -171,10 +151,6 @@ let rec apply f = function
   | BL (label, d) -> BL (label, d)
   | Jump (label, d) -> Jump (label, d)
   | SetLabel (label, t, d) -> SetLabel (label, t, d)
-  | In (x, d) -> In (f x, d)
-  | Out (x, d) -> Out (f x, d)
-  | InPos (x, p, d) -> InPos (f x, p, d)
-  | OutPos (x, p, d) -> OutPos (f x, p, d)
   | BLR -> BLR
 
 let var2var_or_im = apply (fun x -> Var x)
@@ -189,7 +165,7 @@ let reg2regstr =
 
 let al = alpha ()
 
-let rec conv (order: debug Virtual.u) var local saved =
+let rec conv (order: (debug, var) Virtual.u) var local saved =
   let change = List.map var2var_or_im in
   match order with
   | Nop x -> change [Nop x]
@@ -259,9 +235,6 @@ let rec conv (order: debug Virtual.u) var local saved =
         | Some (x, y) -> [y]
         | None -> [] )
       @ a1
-  | Out (reg, d) -> change [Out (reg, d)]
-  | OutPos (reg, pos, d) -> change [OutPos (reg, pos, d)]
-  | In (reg, d) -> change [In (reg, d)]
   | _ -> failwith (Virtual.show_tmp order)
 
 and virtual_to_var e ret local saved =
@@ -277,7 +250,7 @@ and virtual_to_var e ret local saved =
 
 let ( >>= ) (name, env) f = f (name, env)
 
-let register_alloc_fun (func: Virtual.fundef) =
+let register_alloc_fun (func: Virtual.fundef_t) =
   let c = ref 2 in
   let r = ref [] in
   let find_or name =
@@ -334,10 +307,6 @@ let register_alloc_tmp () =
         | Load (a, b, n, d) -> Load (find_or a, find_or b, n, d)
         | Store (a, b, n, d) -> Store (find_or a, find_or b, n, d)
         | Cmpd (a, b, d) -> Cmpd (find_or a, find_or b, d)
-        | In (a, d) -> In (find_or a, d)
-        | Out (a, d) -> Out (find_or a, d)
-        | InPos (a, p, d) -> InPos (find_or a, p, d)
-        | OutPos (a, p, d) -> OutPos (find_or a, p, d)
         | Nop x -> Nop x
         | BLR -> BLR
         | Nop d -> Nop d
