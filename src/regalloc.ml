@@ -544,7 +544,7 @@ let get_closure_pro arg varg =
         , l + 1 ) )
       ([], VarMap2.empty, 0) varg
   in
-  (ac, (m, arg))
+  (ac, (m, l))
 
 (* let arg_stack args body =  *)
 (*   let cur = *)
