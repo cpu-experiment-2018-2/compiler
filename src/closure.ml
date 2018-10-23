@@ -49,10 +49,14 @@ let f =
     let closure_conversion x = closure_conversion' known x in
     match e with
     | Const (x, d) -> Const (x, d)
-    | Op (Primitive Not, [x], d) -> (AppDir ({name="not";debug = d;ty = Type.TyInt}, [x], d)) 
-    | Op (Primitive GE, [x; y], d) -> (AppDir ({name="leq";debug =d;ty = Type.TyInt}, [y;x], d)) 
-    | Op (Primitive LE, [x; y], d) -> (AppDir ({name="leq";debug =d;ty = Type.TyInt}, [x;y], d)) 
-    | Op (Primitive EQ, [x; y], d) -> (AppDir ({name="eq";debug =d;ty = Type.TyInt}, [x;y], d)) 
+    | Op (Primitive Not, [x], d) ->
+        AppDir ({name= "not"; debug= d; ty= Type.TyInt}, [x], d)
+    | Op (Primitive GE, [x; y], d) ->
+        AppDir ({name= "leq"; debug= d; ty= Type.TyInt}, [y; x], d)
+    | Op (Primitive LE, [x; y], d) ->
+        AppDir ({name= "leq"; debug= d; ty= Type.TyInt}, [x; y], d)
+    | Op (Primitive EQ, [x; y], d) ->
+        AppDir ({name= "eq"; debug= d; ty= Type.TyInt}, [x; y], d)
     | Op (op, l, d) -> Op (op, l, d)
     | If (cmp, n1, n2, e1, e2, d) ->
         If (cmp, n1, n2, closure_conversion e1, closure_conversion e2, d)
@@ -84,7 +88,7 @@ let f =
           let _ = Printf.printf "%s is closure fv is " f.f.name in
           let _ = List.iter (fun x -> Printf.printf " %s " x.name) fv' in
           let _ = print_newline () in
-          Closure ({label= f.f; closure_fv= fv' @ [f.f]}, e2')
+          Closure ({label= f.f; closure_fv= fv'}, e2')
         else e2'
     | Let (var, e1, e2, d) ->
         Let (var, closure_conversion e1, closure_conversion e2, d)

@@ -16,8 +16,7 @@ let show_closure = ref false
 
 let show_virtual = ref false
 
-let optimize p =
-  p |> ConstantFold.f |> CseElimination.f |> RemoveLet.f
+let optimize p = p |> ConstantFold.f |> CseElimination.f |> RemoveLet.f
 
 let rec optimtime x p = if x = 0 then p else optimtime (x - 1) (optimize p)
 
@@ -26,7 +25,7 @@ let lexbuf oc l =
   let _ = print_newline () in
   let _ = print_string "parse succeed\n" in
   let _ = if !show_ast then print_string (Syntax.show p) else () in
-  let p = Typing.f p in 
+  let p = Typing.f p in
   let _ = print_string "type check succeed\n" in
   let _ = if !show_typed then print_string (Syntax.show p) else () in
   let p = Knormal.f p in
