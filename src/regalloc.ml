@@ -4,23 +4,24 @@ open Virtual
 
 type t = (Syntax.debug, int) Virtual.v [@@deriving show]
 
-let mymemmap v map = match v with
-| Syntax.Int(y) -> true
-| _ -> VarMap2.mem v map
-let mymemset v map = match v with
-| Syntax.Int(y) -> false
-| _ -> VarSet2.mem v map
+let mymemmap v map =
+  match v with Syntax.Int y -> true | _ -> VarMap2.mem v map
 
-let last_gr_reg = 30
+let mymemset v map =
+  match v with Syntax.Int y -> false | _ -> VarSet2.mem v map
+
+let last_gr_reg = 29
+
+let first_user_reg = 3
+
 let show_stackmap (e, _) =
   let _ =
     VarMap2.fold
-      (fun key v acc -> Printf.printf "\nstack[%d] = %s ;" v (Syntax.show_g key))
+      (fun key v acc -> Printf.printf "\nstack[%d] = %s ;" v (Syntax.g2s key))
       e ()
   in
   ()
 
- 
 let show_regmap e =
   let e = List.sort (fun (x, _) (y, _) -> compare x y) e in
   let _ = print_newline () in
@@ -28,31 +29,26 @@ let show_regmap e =
     List.map
       (fun (x, y) ->
         match y with
-        | Some y -> Printf.printf "reg[%d] = %s ;" x (Syntax.show_g y)
+        | Some y -> Printf.printf "reg[%d] = %s ;" x (Syntax.g2s y)
         | None -> Printf.printf "reg[%d] = None ;" x )
       e
   in
   let _ = print_newline () in
   ()
-let show_state (f,regmap,stackmap) = 
-    let _ = show_regmap regmap in
-    show_stackmap stackmap
 
-
+let show_state (f, regmap, stackmap) =
+  let _ = show_regmap regmap in
+  show_stackmap stackmap
 
 let tmp_reg = 30
 
-let failwith_message message= 
-    function
-        | Some (x) -> x
-        | _ -> failwith message
-
+let failwith_message message = function Some x -> x | _ -> failwith message
 
 let rec get_liveu' e =
   match e with
-  | Nop _ | Li _ | FLi _ |Lil _ -> VarSet2.empty
-  | CallDir (_, vars, _) | CallCls (_, vars, _) | Op (_, vars, _) ->
-      VarSet2.of_list vars
+  | Nop _ | Li _ | FLi _ | Lil _ -> VarSet2.empty
+  | CallDir (_, vars, _) | Op (_, vars, _) -> VarSet2.of_list vars
+  | CallCls (f, vars, _) -> VarSet2.of_list (f :: vars)
   | Load (x, y, _, _) | Store (x, y, _, _) -> VarSet2.of_list [x; y]
   | If (_, x, y, e1, e2, d) ->
       VarSet2.union
@@ -66,10 +62,18 @@ and get_livev' e =
   | Let (var, u, v) ->
       VarSet2.union
         (VarSet2.diff (get_livev' v) (VarSet2.singleton var))
+        (* (get_livev' v) *)
         (get_liveu' u)
-let get_liveu e = VarSet2.filter (fun x -> match x with | Var(x) -> true | _ -> false) (get_liveu' e)
-let get_livev e = VarSet2.filter (fun x -> match x with | Var(x) -> true | _ -> false) (get_livev' e)
 
+let get_liveu e =
+  VarSet2.filter
+    (fun x -> match x with Var x -> true | _ -> false)
+    (get_liveu' e)
+
+let get_livev e =
+  VarSet2.filter
+    (fun x -> match x with Var x -> true | _ -> false)
+    (get_livev' e)
 
 let gr =
   let rec f x = if x = last_gr_reg then [] else x :: f (x + 1) in
@@ -78,16 +82,19 @@ let gr =
 let init = List.map (fun x -> (x, None)) gr
 
 let rec liveness_after_call e =
+  let g vars v =
+    ( fst
+        (List.fold_left
+           (fun (acc, counter) x -> ((counter, x) :: acc, counter + 1))
+           ([], 3) vars)
+    , (match v with Some v -> get_livev v | None -> VarSet2.empty)
+    , true )
+  in
   match e with
   | Let (_, u, v) -> (
     match u with
-    | CallDir (_, vars, _) | CallCls (_, vars, _) ->
-        ( fst
-            (List.fold_left
-               (fun (acc, counter) x -> ((counter, x) :: acc, counter + 1))
-               ([], 3) vars)
-        , get_livev v
-        , true )
+    | CallDir (_, vars, _) -> g vars (Some v)
+    | CallCls (var, vars, _) -> g (var :: vars) (Some v)
     | If (cmp, _, _, e1, e2, d) ->
         let x1, l1, f1 = liveness_after_call e1 in
         let x2, l2, f2 = liveness_after_call e2 in
@@ -96,53 +103,54 @@ let rec liveness_after_call e =
           let x3, l3, f3 = liveness_after_call v in
           (x3, VarSet2.union l3 (VarSet2.union l1 l2), f1 || f2 || f3)
     | _ -> liveness_after_call v )
-  | Ans u ->
+  | Ans u -> (
     match u with
-    | CallDir (_, vars, _) | CallCls (_, vars, _) ->
-        ( fst
-            (List.fold_left
-               (fun (acc, counter) x -> ((counter, x) :: acc, counter + 1))
-               ([], 3) vars)
-        , VarSet2.empty
-        , true )
+    | CallDir (_, vars, _) -> g vars None
+    | CallCls (var, vars, _) -> g (var :: vars) None
     | If (cmp, _, _, e1, e2, d) ->
         let x1, l1, f1 = liveness_after_call e1 in
         let x2, l2, f2 = liveness_after_call e2 in
-        if f1 || f2 then (x1, VarSet2.union l1 l2, true) else (x1, VarSet2.union l1 l2, false)
-    | _ -> ([], VarSet2.empty, false)
+        if f1 || f2 then (x1, VarSet2.union l1 l2, true)
+        else (x1, VarSet2.union l1 l2, false)
+    | _ -> ([], VarSet2.empty, false) )
 
 let update idx u l = (idx, Some u) :: List.filter (fun (x, y) -> x <> idx) l
 
 let forget idx l = (idx, None) :: List.filter (fun (x, y) -> x <> idx) l
 
 let getreg_by_val_opt var l =
-  match var with Int(x) -> Some(x)
-  | _ -> 
-  match
-    List.find_opt
-      (fun (x, y) -> match y with Some y -> compare_g y var = 0 | None -> false)
-      l
-  with
-  | Some (idx, var) -> Some idx
-  | None -> None
+  match var with
+  | Int x -> Some x
+  | _ -> (
+    match
+      List.find_opt
+        (fun (x, y) ->
+          match y with Some y -> compare_g y var = 0 | None -> false )
+        l
+    with
+    | Some (idx, var) -> Some idx
+    | None -> None )
 
 let getreg_by_val var l =
   match var with
-  | Int(x) -> x
-  | _ -> 
-  fst
-    (failwith_message "getreg_by_val" (List.find_opt
-       (fun (x, y) ->
-         match y with Some y -> compare_g y var = 0| None -> false )
-       l) )
+  | Int x -> x
+  | _ ->
+      fst
+        (failwith_message
+           ("getreg_by_val " ^ Syntax.g2s var)
+           (List.find_opt
+              (fun (x, y) ->
+                match y with Some y -> compare_g y var = 0 | None -> false )
+              l))
 
 let is_on_reg l var =
   match var with
-  | Int(x) -> true
-  | _ -> 
-    List.exists
-    (fun (x, y) -> match y with Some y -> compare_g y var = 0 | _ -> false)
-    l
+  | Int x -> true
+  | _ ->
+      List.exists
+        (fun (x, y) ->
+          match y with Some y -> compare_g y var = 0 | _ -> false )
+        l
 
 let forget_f var (f, regmap, stackamp) =
   (f, forget (getreg_by_val var regmap) regmap, stackamp)
@@ -177,21 +185,28 @@ let ( >>= ) x f = f x
 let max_empty_reg regmap =
   let regmap = List.sort (fun (x, _) (y, _) -> y - x) regmap in
   let idx, _ =
-      match List.find_opt (fun (_, x) -> match x with None -> true | _ -> false) regmap with
-      | Some(x) -> x
-      | None -> failwith "register is filled"
+    match
+      List.find_opt
+        (fun (_, x) -> match x with None -> true | _ -> false)
+        regmap
+    with
+    | Some x -> x
+    | None -> failwith "register is filled"
   in
   idx
 
-
 let get_loader idx var (stackmap, sz) =
-    Load (idx, framep, failwith_message "get_loader" (VarMap2.find_opt var stackmap), tmp_debug)
+  Load
+    ( idx
+    , framep
+    , failwith_message "get_loader" (VarMap2.find_opt var stackmap)
+    , tmp_debug )
 
 let make_var_on_reg var (f, regmap, stackmap) =
   if is_on_reg regmap var then (f, regmap, stackmap)
   else
     let idx = max_empty_reg regmap in
-    let _ = print_string (Syntax.show_g var) in
+    let _ = print_string (Syntax.g2s var) in
     let stack_load = get_loader idx var stackmap in
     let f x = f (Let (idx, stack_load, x)) in
     (f, update idx var regmap, stackmap)
@@ -246,20 +261,25 @@ let rec alloc var u cont (f, regmap, stackmap) last =
   let normal_live = get_livev cont in
   let nextfun_arg, liveness, flag = liveness_after_call cont in
   let tar =
-    match last with
-    | Some id -> id
-    | _ ->
-      match List.find_opt (fun (y, x) -> compare_g x var = 0) nextfun_arg with
-      | Some (y, x) -> y
-      | None ->
-          let regmap = List.sort (fun (x, _) (y, _) -> y - x) regmap in
-          let idx, _ =
-            List.find
-              (fun (_, x) -> match x with None -> true | _ -> false)
-              regmap
-          in
-          (* 死んでるもののうち一番インデックスが大きい物 *)
-          idx
+    match var with
+    | Int x -> x
+    | _ -> (
+      match last with
+      | Some id -> id
+      | _ -> (
+        match
+          List.find_opt (fun (y, x) -> compare_g x var = 0) nextfun_arg
+        with
+        | Some (y, x) -> y
+        | None ->
+            let regmap = List.sort (fun (x, _) (y, _) -> y - x) regmap in
+            let idx, _ =
+              List.find
+                (fun (_, x) -> match x with None -> true | _ -> false)
+                regmap
+            in
+            (* 死んでるもののうち一番インデックスが大きい物 *)
+            idx ) )
   in
   let cur = (f, regmap, stackmap) in
   let u, (f, regmap, stackmap) =
@@ -295,14 +315,17 @@ let rec alloc var u cont (f, regmap, stackmap) last =
         in
         (Var (3, tmp_debug), (f, update 3 var init, stackmap))
     | CallCls (label, vars, d) ->
-        let f, regmap, stackmap = put_arg (f, regmap, stackmap) vars in
-        (* let (f,regmap, stackmap) = make_vars_args vars cur in *)
+        let f, regmap, stackmap =
+          put_arg (f, regmap, stackmap) (label :: vars)
+        in
         let f x =
           f
             (Let
                ( 3
                , CallCls
-                   (label, List.map (fun x -> getreg_by_val x regmap) vars, d)
+                   ( getreg_by_val label regmap
+                   , List.map (fun x -> getreg_by_val x regmap) vars
+                   , d )
                , x ))
         in
         (Var (3, tmp_debug), (f, update 3 var init, stackmap))
@@ -351,10 +374,8 @@ let rec alloc var u cont (f, regmap, stackmap) last =
   in
   let regmap = update tar var regmap in
   let f, regmap, stackmap =
-    if mymemset var liveness then (
-      spill var (f, regmap, stackmap) )
-    else (
-      (f, regmap, stackmap) )
+    if mymemset var liveness then spill var (f, regmap, stackmap)
+    else (f, regmap, stackmap)
   in
   let regmap =
     List.map
@@ -368,14 +389,14 @@ let rec alloc var u cont (f, regmap, stackmap) last =
   (f, regmap, stackmap)
 
 and regalloc e (f, regmap, stackmap) last =
-    let _ = show_state (f,regmap,stackmap) in
-    let _ = print_string (Virtual.show_k e) in
+  let _ = show_state (f, regmap, stackmap) in
+  let _ = print_string (Virtual.show_k e) in
   match e with
   | Let (var, u, v) ->
       alloc var u v (f, regmap, stackmap) None >>= fun x -> regalloc v x last
   | Ans u ->
       let en = Ans (Nop tmp_debug) in
-      alloc (Var(tmp_var ())) u en (f, regmap, stackmap) (Some last)
+      alloc (Var (tmp_var ())) u en (f, regmap, stackmap) (Some last)
 
 let rec spill_reg_not_forget vars (f, regmap, stackmap) =
   let onreg =
@@ -386,9 +407,10 @@ let rec spill_reg_not_forget vars (f, regmap, stackmap) =
     List.filter (fun x -> not (VarMap2.mem x (fst stackmap))) onreg
   in
   spill_not_forget_f should_spill (f, regmap, stackmap)
+
 let convert e fstreg args =
-    (* let _ =  Printf.printf "%s" (Virtual.show e) in *)
-    (* let _ = List.iter (fun x->Printf.printf "%s "  x.name) args in *)
+  (* let _ =  Printf.printf "%s" (Virtual.show e) in *)
+  (* let _ = List.iter (fun x->Printf.printf "%s "  x.name) args in *)
   let cur =
     spill_reg_not_forget args ((fun x -> x), fstreg, (VarMap2.empty, 0))
   in
@@ -409,9 +431,9 @@ let first_reg args =
 
 open Asm
 
-
 type hoge = (debug, int) Virtual.u [@@deriving show]
-let rec conv (order:hoge) var =
+
+let rec conv (order : hoge) var =
   match order with
   | Nop x -> [Nop x]
   | Li (x, d) -> [Li (var, x, d)]
@@ -449,28 +471,50 @@ let rec conv (order:hoge) var =
       :: (p2 @ p1 @ [SetLabel (t, Other, d)])
   | Var (x, d) -> [Opi (Add, var, x, 0, d)]
   | CallDir (label, args, d) -> [BL (label, d)]
+  | CallCls (var, args, d) ->
+      let a = List.length args in
+      [ Op (Add, a + 3, var, 0, tmp_debug)
+      ; Load (30, var, 0, tmp_debug)
+      ; BLRR 30 ]
   | _ -> failwith (show_hoge order)
 
 and virtual_to_var e ret =
   match e with
-  | Let (var, order, v) -> (
-    match order with
-    | CallDir _ -> conv order var @ virtual_to_var v ret
-    | _ -> conv order var @ virtual_to_var v ret )
+  | Let (var, order, v) -> conv order var @ virtual_to_var v ret
   | Ans order -> conv order ret
+
+let get_closure_pro arg varg =
+  let rec f l =
+    if l = 0 then []
+    else
+      Load
+        (first_user_reg + arg + l - 1, first_user_reg + arg, l - 1, tmp_debug)
+      :: f (l - 1)
+  in
+  f varg
 
 let rec top (main, toplevel) =
   let main =
-    {label= "main"; body= main; args= []; local= 0; ret= Syntax.Var(tmp_var ())}
+    { label= "main"
+    ; body= main
+    ; args= []
+    ; local= 0
+    ; ret= Syntax.Var (tmp_var ())
+    ; fv= [] }
   in
   let li = main :: toplevel in
   let li =
     List.map
       (fun g ->
-        let body, size = convert g.body (first_reg g.args) g.args in
+        let body, size =
+          convert g.body (first_reg (g.args @ g.fv)) (g.args @ g.fv)
+        in
+        let _ = print_string ("ANSWER : " ^ g.label) in
+        let _ = print_string (show body) in
         let body = virtual_to_var body 3 in
         let pro, epi = proepi tmp_debug (size + 2) in
-        (SetLabel (g.label, FunCall, tmp_debug) :: pro) @ body @ epi )
+        let a = get_closure_pro (List.length g.args) (List.length g.fv) in
+        (SetLabel (g.label, FunCall, tmp_debug) :: pro) @ a @ body @ epi )
       li
   in
   List.concat li
