@@ -5,7 +5,6 @@ external getint : float -> int = "getint"
 
 type iop = Mul | Add | Sub | Div
 
-
 let alpha () = {name= Syntax.genvar (); debug= tmp_debug; ty= TyInt}
 
 let iop_to_str = function
@@ -42,6 +41,7 @@ type 'reg u =
   | Jump of label * Syntax.debug
   | SetLabel of string * labelType * Syntax.debug
   | BLR
+  | BLRR of 'reg
   | BL of label * Syntax.debug
 
 type var_or_reg = Reg of int | Var of var
@@ -85,22 +85,22 @@ let evacuate local saved =
 
 let move v1 v2 d = Opi (Add, v1, v2, 0, d)
 
-let rec record (e: string u list) =
+let rec record (e : string u list) =
   let f acc s =
     match s with SetLabel (label, Other, l) -> label :: acc | _ -> acc
   in
   let ans = List.fold_left f [] e in
   fun x -> if List.exists (fun y -> x = y) ans then "@@" ^ x else x
 
-let rec emit_sugar oc ch (e: string u) =
+let rec emit_sugar oc ch (e : string u) =
   match e with
   | Nop d -> ()
   (*  Printf.fprintf oc "\tnop (* %s *)" (Syntax.pos_to_str d.pos) *)
   | Li (reg, x, d) ->
       Printf.fprintf oc "\tli %s,%d (* %s *)\n" reg x (Syntax.pos_to_str d.pos)
   | Lil (reg, x, d) ->
-      Printf.fprintf oc "\tlil %s,%s (* %s *)\n" reg x (Syntax.pos_to_str d.pos)
-
+      Printf.fprintf oc "\tlil %s,%s (* %s *)\n" reg x
+        (Syntax.pos_to_str d.pos)
   | Op (op, rt, ra, rb, d) ->
       Printf.fprintf oc "\t%s %s,%s,%s (* %s *)\n" (iop_to_str op) rt ra rb
         (Syntax.pos_to_str d.pos)
@@ -136,6 +136,7 @@ let rec emit_sugar oc ch (e: string u) =
       Printf.fprintf oc "\tjump %s (* %s *)\n" (ch label)
         (Syntax.pos_to_str d.pos)
   | BLR -> Printf.fprintf oc "\tblr\n"
+  | BLRR v -> Printf.fprintf oc "\tblrr %s\n" v
   | BL (label, d) ->
       Printf.fprintf oc "\tbl %s (* %s *)\n" (ch label)
         (Syntax.pos_to_str d.pos)
@@ -156,6 +157,7 @@ let rec apply f = function
   | BL (label, d) -> BL (label, d)
   | Jump (label, d) -> Jump (label, d)
   | SetLabel (label, t, d) -> SetLabel (label, t, d)
+  | BLRR x -> BLRR (f x)
   | BLR -> BLR
 
 let var2var_or_im = apply (fun x -> Var x)
@@ -170,7 +172,7 @@ let reg2regstr =
 
 let al = alpha ()
 
-let rec conv (order: (debug, var) Virtual.u) var local saved =
+let rec conv (order : (debug, var) Virtual.u) var local saved =
   let change = List.map var2var_or_im in
   match order with
   | Nop x -> change [Nop x]
@@ -255,7 +257,7 @@ and virtual_to_var e ret local saved =
 
 let ( >>= ) (name, env) f = f (name, env)
 
-let register_alloc_fun (func: Virtual.fundef_t) =
+let register_alloc_fun (func : Virtual.fundef_t) =
   let c = ref 2 in
   let r = ref [] in
   let find_or name =
