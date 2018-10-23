@@ -34,7 +34,7 @@ let rec fv = function
 
 type t = debug u [@@deriving show]
 
-let (toplevel : debug fundef list ref) = ref []
+let (toplevel: debug fundef list ref) = ref []
 
 let add_toplevel fundef = toplevel := fundef :: !toplevel
 
@@ -45,7 +45,7 @@ let add_toplevel fundef = toplevel := fundef :: !toplevel
 
 let f =
   let _ = toplevel := [] in
-  let rec closure_conversion' known (e : Knormal.t) =
+  let rec closure_conversion' known (e: Knormal.t) =
     let closure_conversion x = closure_conversion' known x in
     match e with
     | Const (x, d) -> Const (x, d)
@@ -70,20 +70,17 @@ let f =
         (*     (VarSet.diff (fv e1') (VarSet.of_list (f.f :: f.args))) *)
         (* in *)
         let fv' =
-          VarSet.elements
-            (VarSet.diff (fv e1') (VarSet.of_list (f.args)))
+          VarSet.elements (VarSet.diff (fv e1') (VarSet.of_list f.args))
         in
         let _ =
           add_toplevel {f= f.f; args= f.args; fv= fv'; body= e1'; info= f.info}
         in
         let e2' = closure_conversion' known' e2 in
         if VarSet.mem f.f (fv e2') then
-            (
-                let _ = Printf.printf "%s is closure fv is " f.f.name in
-                let _ = List.iter (fun x -> Printf.printf " %s " x.name) fv' in
-                let _ = print_newline ()  in
-            Closure ({label= f.f; closure_fv= fv'@[f.f]}, e2'))
-
+          let _ = Printf.printf "%s is closure fv is " f.f.name in
+          let _ = List.iter (fun x -> Printf.printf " %s " x.name) fv' in
+          let _ = print_newline () in
+          Closure ({label= f.f; closure_fv= fv' @ [f.f]}, e2')
         else e2'
     | Let (var, e1, e2, d) ->
         Let (var, closure_conversion e1, closure_conversion e2, d)

@@ -14,11 +14,10 @@ let show_optimized = ref false
 
 let show_closure = ref false
 
-let show_virtual = ref false 
+let show_virtual = ref false
 
-
-
-let optimize p = p |>Inline.f |> ConstantFold.f |> CseElimination.f |> RemoveLet.f
+let optimize p =
+  p |> Inline.f |> ConstantFold.f |> CseElimination.f |> RemoveLet.f
 
 let rec optimtime x p = if x = 0 then p else optimtime (x - 1) (optimize p)
 
@@ -33,7 +32,6 @@ let lexbuf oc l =
   let p = Knormal.f p in
   let _ = print_string "\nknormalized\n" in
   let _ = if !show_knormal then Knormal.myprint p 0 else () in
-
   let p = Alpha.f p in
   let _ = print_string "\nalpha conversion\n" in
   let _ = if !show_alpha then Knormal.myprint p 0 else () in

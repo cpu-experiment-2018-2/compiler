@@ -45,7 +45,7 @@ let rec apply f e =
   | Var (x, d) -> Var (f x, d)
   | Op (op, vars, d) -> Op (op, List.map f vars, d)
   | Load (x, y, off, d) -> Load (f x, f y, off, d)
-  | LetLoad (y, off, d) -> LetLoad ( f y, off, d)
+  | LetLoad (y, off, d) -> LetLoad (f y, off, d)
   | Store (x, y, off, d) -> Store (f x, f y, off, d)
   | If (cmp, x, y, e1, e2, d) -> If (cmp, f x, f y, apply' f e1, apply' f e2, d)
   | CallDir (l, vars, d) -> CallDir (l, List.map f vars, d)
@@ -89,7 +89,7 @@ let rec concat var e1 e2 =
 
 let to_g = ap
 
-let rec closure_to_virtual' (e : Closure.t) =
+let rec closure_to_virtual' (e: Closure.t) =
   let closure_to_virtual x = closure_to_virtual' x in
   match e with
   | Const (CUnit, d) -> Ans (Nop d)
@@ -119,7 +119,7 @@ let rec closure_to_virtual' (e : Closure.t) =
           ( Int 29
           , Lil (fundef.label.name, tmp_debug)
           , Let
-              ( fptr 
+              ( fptr
               , LetLoad (Int 0, 0, tmp_debug)
               , Let
                   ( Int 0
@@ -143,14 +143,15 @@ let rec closure_to_virtual' (e : Closure.t) =
            ( Int 29
            , Li (List.length fundef.closure_fv + 1, tmp_debug)
            , Let
-               ( Int 29 
+               ( Int 29
                , Op (Primitive Add, [fptr; Int 29], tmp_debug)
                , Let
                    ( Int 0
                    , Store (Int 29, Int 0, 0, tmp_debug)
                    , closure_to_virtual e ) ) ))
   (* | AppCls (var, ys, d) -> Ans (CallCls (var, ys, d))  *)
-  | AppDir (var, ys, d) -> to_g (Ans (CallDir (var.name, ys, d)))
+  | AppDir (var, ys, d) ->
+      to_g (Ans (CallDir (var.name, ys, d)))
   (*  *)
   | AppCls (var, ys, d) -> to_g (Ans (CallCls (var, ys, d)))
   (*  *)
@@ -185,7 +186,7 @@ let rec g_last_var = function
       let x = tmp_var () in
       (Let (x, s, Ans (Var (x, x.debug))), x)
 
-let rec function_to_virtual2 (fundef : debug Closure.fundef) =
+let rec function_to_virtual2 (fundef: debug Closure.fundef) =
   let body = closure_to_virtual' fundef.body in
   { label= fundef.f.name
   ; args= List.map conv fundef.args
@@ -205,6 +206,5 @@ let rec function_to_virtual2 (fundef : debug Closure.fundef) =
   ; ret= last_var
   ; fv = fundef.closure_fv
   ; local= l + List.length fundef.args} *)
-
 (* let f (x, y) = ( (closure_to_virtual' x), List.map function_to_virtual y) *)
 let h (x, y) = (closure_to_virtual' x, List.map function_to_virtual2 y)

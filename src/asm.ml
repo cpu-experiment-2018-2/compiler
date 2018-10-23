@@ -85,14 +85,14 @@ let evacuate local saved =
 
 let move v1 v2 d = Opi (Add, v1, v2, 0, d)
 
-let rec record (e : string u list) =
+let rec record (e: string u list) =
   let f acc s =
     match s with SetLabel (label, Other, l) -> label :: acc | _ -> acc
   in
   let ans = List.fold_left f [] e in
   fun x -> if List.exists (fun y -> x = y) ans then "@@" ^ x else x
 
-let rec emit_sugar oc ch (e : string u) =
+let rec emit_sugar oc ch (e: string u) =
   match e with
   | Nop d -> ()
   (*  Printf.fprintf oc "\tnop (* %s *)" (Syntax.pos_to_str d.pos) *)
@@ -172,7 +172,7 @@ let reg2regstr =
 
 let al = alpha ()
 
-let rec conv (order : (debug, var) Virtual.u) var local saved =
+let rec conv (order: (debug, var) Virtual.u) var local saved =
   let change = List.map var2var_or_im in
   match order with
   | Nop x -> change [Nop x]
@@ -257,7 +257,7 @@ and virtual_to_var e ret local saved =
 
 let ( >>= ) (name, env) f = f (name, env)
 
-let register_alloc_fun (func : Virtual.fundef_t) =
+let register_alloc_fun (func: Virtual.fundef_t) =
   let c = ref 2 in
   let r = ref [] in
   let find_or name =
