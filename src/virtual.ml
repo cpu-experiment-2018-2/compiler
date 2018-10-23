@@ -114,38 +114,43 @@ let rec closure_to_virtual' (e : Closure.t) =
       let fptr = Syntax.Var fundef.label in
       let ops x =
         Let
-          ( fptr
+          ( Int 29
           , Lil (fundef.label.name, tmp_debug)
+          , Let (
+              fptr,
+               Nop(tmp_debug)
           , Let
-              ( Int 0
-              , Load (Int 30, Int 0, 0, tmp_debug)
+              ( Int 0 
+              , Load (fptr, Int 0, 0, tmp_debug)
               , Let
                   ( Int 0
-                  , Store (fptr, Int 30, 0, tmp_debug)
+                  , Store (Int 29, fptr, 0, tmp_debug)
                   , fst
                       (List.fold_left
                          (fun (f, counter) x ->
                            ( (fun y ->
+                               let _ = Printf.printf "%s store %d" x.name counter in
                                f
                                  (Let
                                     ( Int 0
-                                    , Store (Var x, Int 30, counter, tmp_debug)
+                                    , Store (Var x, fptr, counter, tmp_debug)
                                     , y )) )
                            , counter + 1 ) )
                          ((fun x -> x), 1)
                          fundef.closure_fv)
                       x ) ) )
+          )
       in
       ops
         (Let
-           ( fptr
+           ( Int 29
            , Li (List.length fundef.closure_fv + 1, tmp_debug)
            , Let
-               ( fptr
-               , Op (Primitive Add, [Int 30; fptr], tmp_debug)
+               ( Int 29 
+               , Op (Primitive Add, [fptr; Int 29], tmp_debug)
                , Let
                    ( Int 0
-                   , Store (fptr, Int 0, 0, tmp_debug)
+                   , Store (Int 29, Int 0, 0, tmp_debug)
                    , closure_to_virtual e ) ) ))
   (* | AppCls (var, ys, d) -> Ans (CallCls (var, ys, d))  *)
   | AppDir (var, ys, d) -> to_g (Ans (CallDir (var.name, ys, d)))

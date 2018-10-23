@@ -10,7 +10,7 @@ let mymemmap v map =
 let mymemset v map =
   match v with Syntax.Int y -> false | _ -> VarSet2.mem v map
 
-let last_gr_reg = 29
+let last_gr_reg = 28
 
 let first_user_reg = 3
 
@@ -62,7 +62,6 @@ and get_livev' e =
   | Let (var, u, v) ->
       VarSet2.union
         (VarSet2.diff (get_livev' v) (VarSet2.singleton var))
-        (* (get_livev' v) *)
         (get_liveu' u)
 
 let get_liveu e =
@@ -94,7 +93,7 @@ let rec liveness_after_call e =
   | Let (_, u, v) -> (
     match u with
     | CallDir (_, vars, _) -> g vars (Some v)
-    | CallCls (var, vars, _) -> g (var :: vars) (Some v)
+    | CallCls (var, vars, _) -> g ( vars @[var]) (Some v)
     | If (cmp, _, _, e1, e2, d) ->
         let x1, l1, f1 = liveness_after_call e1 in
         let x2, l2, f2 = liveness_after_call e2 in
@@ -106,7 +105,7 @@ let rec liveness_after_call e =
   | Ans u -> (
     match u with
     | CallDir (_, vars, _) -> g vars None
-    | CallCls (var, vars, _) -> g (var :: vars) None
+    | CallCls (var, vars, _) -> g ( vars @ [var]) None
     | If (cmp, _, _, e1, e2, d) ->
         let x1, l1, f1 = liveness_after_call e1 in
         let x2, l2, f2 = liveness_after_call e2 in
@@ -316,7 +315,7 @@ let rec alloc var u cont (f, regmap, stackmap) last =
         (Var (3, tmp_debug), (f, update 3 var init, stackmap))
     | CallCls (label, vars, d) ->
         let f, regmap, stackmap =
-          put_arg (f, regmap, stackmap) (label :: vars)
+          put_arg (f, regmap, stackmap) ( vars @ [label])
         in
         let f x =
           f
@@ -377,14 +376,21 @@ let rec alloc var u cont (f, regmap, stackmap) last =
     if mymemset var liveness then spill var (f, regmap, stackmap)
     else (f, regmap, stackmap)
   in
+  let _ = show_state (f,regmap,stackmap) in
   let regmap =
-    List.map
+    List.concat (List.map
       (fun (idx, x) ->
+          if idx >= 3 && idx < last_gr_reg then
+              (
         match x with
-        | Some x when VarSet2.mem x normal_live -> (idx, Some x)
-        | _ -> (idx, None) )
-      regmap
+        | Some x when VarSet2.mem x normal_live -> [(idx, Some x)]
+        | _ -> [(idx, None)] )
+    else [])
+      regmap)
   in
+  let _ = Printf.printf "after\n" in
+
+  let _ = show_state (f,regmap,stackmap) in
   let regmap = List.sort (fun (x, _) (y, _) -> y - x) regmap in
   (f, regmap, stackmap)
 
@@ -488,7 +494,7 @@ let get_closure_pro arg varg =
     if l = 0 then []
     else
       Load
-        (first_user_reg + arg + l - 1, first_user_reg + arg, l - 1, tmp_debug)
+        (first_user_reg + arg + l - 1, first_user_reg + arg, l , tmp_debug)
       :: f (l - 1)
   in
   f varg

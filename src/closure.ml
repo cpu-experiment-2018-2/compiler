@@ -81,7 +81,7 @@ let f =
         let _ =
           add_toplevel {f= f.f; args= f.args; fv= fv'; body= e1'; info= f.info}
         in
-        let e2' = closure_conversion' known e2 in
+        let e2' = closure_conversion' known' e2 in
         if VarSet.mem f.f (fv e2') then
           Closure ({label= f.f; closure_fv= fv'}, e2')
         else e2'
