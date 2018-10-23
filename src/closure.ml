@@ -19,15 +19,6 @@ and 'a fundef = {f: var; args: var list; fv: var list; body: 'a u; info: 'a}
 
 and 'a closure = {label: var; closure_fv: var list} [@@deriving show]
 
-let remove fv known =
-  List.filter
-    (fun x ->
-      not
-        (List.exists
-           (fun y -> y = x.name)
-           (known @ List.map fst Typing.builtin_function')) )
-    fv
-
 let rec fv = function
   | Const _ -> VarSet.empty
   | Op (_, vars, _) -> VarSet.of_list vars
@@ -74,16 +65,25 @@ let f =
             let e1' = closure_conversion' known f.body in
             (known, e1') )
         in
+        (* let fv' = *)
+        (*   VarSet.elements *)
+        (*     (VarSet.diff (fv e1') (VarSet.of_list (f.f :: f.args))) *)
+        (* in *)
         let fv' =
           VarSet.elements
-            (VarSet.diff (fv e1') (VarSet.of_list (f.f :: f.args)))
+            (VarSet.diff (fv e1') (VarSet.of_list (f.args)))
         in
         let _ =
           add_toplevel {f= f.f; args= f.args; fv= fv'; body= e1'; info= f.info}
         in
         let e2' = closure_conversion' known' e2 in
         if VarSet.mem f.f (fv e2') then
-          Closure ({label= f.f; closure_fv= fv'}, e2')
+            (
+                let _ = Printf.printf "%s is closure fv is " f.f.name in
+                let _ = List.iter (fun x -> Printf.printf " %s " x.name) fv' in
+                let _ = print_newline ()  in
+            Closure ({label= f.f; closure_fv= fv'@[f.f]}, e2'))
+
         else e2'
     | Let (var, e1, e2, d) ->
         Let (var, closure_conversion e1, closure_conversion e2, d)

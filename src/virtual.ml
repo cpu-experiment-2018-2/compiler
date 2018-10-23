@@ -27,6 +27,7 @@ type ('a, 'b) u =
   | Var of 'b * 'a
   | Op of op * 'b list * 'a
   | Load of 'b * 'b * int * 'a
+  | LetLoad of 'b * int * 'a
   | Store of 'b * 'b * int * 'a
   | If of Knormal.cmp * 'b * 'b * ('a, 'b) v * ('a, 'b) v * 'a
   | CallDir of label * 'b list * 'a
@@ -44,6 +45,7 @@ let rec apply f e =
   | Var (x, d) -> Var (f x, d)
   | Op (op, vars, d) -> Op (op, List.map f vars, d)
   | Load (x, y, off, d) -> Load (f x, f y, off, d)
+  | LetLoad (y, off, d) -> LetLoad ( f y, off, d)
   | Store (x, y, off, d) -> Store (f x, f y, off, d)
   | If (cmp, x, y, e1, e2, d) -> If (cmp, f x, f y, apply' f e1, apply' f e2, d)
   | CallDir (l, vars, d) -> CallDir (l, List.map f vars, d)
@@ -116,12 +118,9 @@ let rec closure_to_virtual' (e : Closure.t) =
         Let
           ( Int 29
           , Lil (fundef.label.name, tmp_debug)
-          , Let (
-              fptr,
-               Nop(tmp_debug)
           , Let
-              ( Int 0 
-              , Load (fptr, Int 0, 0, tmp_debug)
+              ( fptr 
+              , LetLoad (Int 0, 0, tmp_debug)
               , Let
                   ( Int 0
                   , Store (Int 29, fptr, 0, tmp_debug)
@@ -129,7 +128,6 @@ let rec closure_to_virtual' (e : Closure.t) =
                       (List.fold_left
                          (fun (f, counter) x ->
                            ( (fun y ->
-                               let _ = Printf.printf "%s store %d" x.name counter in
                                f
                                  (Let
                                     ( Int 0
@@ -139,7 +137,6 @@ let rec closure_to_virtual' (e : Closure.t) =
                          ((fun x -> x), 1)
                          fundef.closure_fv)
                       x ) ) )
-          )
       in
       ops
         (Let
