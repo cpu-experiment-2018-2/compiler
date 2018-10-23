@@ -10,7 +10,7 @@ let mymemmap v map =
 let mymemset v map =
   match v with Syntax.Int y -> false | _ -> VarSet2.mem v map
 
-let last_gr_reg = 28
+let last_gr_reg = 29
 
 let first_user_reg = 3
 
@@ -141,6 +141,20 @@ let getreg_by_val var l =
                 match y with Some y -> compare_g y var = 0 | None -> false )
               l))
 
+
+
+(* let getreg_by_val var l = *)
+(*   match var with *)
+(*   | Int x -> x *)
+(*   | _ -> *)
+(*       fst *)
+(*         (failwith_message *)
+(*            ("getreg_by_val " ^ Syntax.g2s var) *)
+(*            (List.find_opt *)
+(*               (fun (x, y) -> *)
+(*                 match y with Some y -> compare_g y var = 0 | None -> false ) *)
+(*               l)) *)
+
 let is_on_reg l var =
   match var with
   | Int x -> true
@@ -200,18 +214,19 @@ let get_loader idx var (stackmap, sz) =
     , failwith_message "get_loader" (VarMap2.find_opt var stackmap)
     , tmp_debug )
 
+let onreg regmap =
+          List.concat
+            (List.map
+               (fun (x, y) -> match y with Some y -> [y] | _ -> [])
+               regmap)
+
 let rec make_var_on_reg var (f, regmap, stackmap) =
   if is_on_reg regmap var then (f, regmap, stackmap)
   else
     let idx = max_empty_reg regmap in
     match idx with
     | None ->
-        let onreg =
-          List.concat
-            (List.map
-               (fun (x, y) -> match y with Some y -> [y] | _ -> [])
-               regmap)
-        in
+        let onreg = onreg regmap in
         let cur = spill_f onreg (f, regmap, stackmap) in
         make_var_on_reg var cur
     | Some idx ->
@@ -283,9 +298,16 @@ let rec alloc var u cont (f, regmap, stackmap) last =
         | None ->
             let regmap = List.sort (fun (x, _) (y, _) -> y - x) regmap in
             let idx, _ =
-              List.find
+              match List.find_opt 
                 (fun (_, x) -> match x with None -> true | _ -> false)
                 regmap
+              with
+              | Some((x,y)) -> (x,y)
+              | None -> 
+                      (
+                      let _ = show_regmap regmap in
+                      failwith "HOGE"
+                      )
             in
             (* 死んでるもののうち一番インデックスが大きい物 *)
             idx
@@ -409,6 +431,11 @@ let rec alloc var u cont (f, regmap, stackmap) last =
 and regalloc e (f, regmap, stackmap) last =
   (* let _ = show_state (f, regmap, stackmap) in *)
   (* let _ = print_string (Virtual.show_k e) in *)
+  let hasempty = List.length (List.filter (fun x -> match x with (idx,None) -> true | _-> false) regmap ) > 3 in   
+  let (f,regmap,stackmap) = if hasempty then (f,regmap,stackmap) else (
+      let _ = Printf.printf "spiil all\n" in
+      spill_f (onreg regmap) (f,regmap,stackmap) 
+  ) in 
   match e with
   | Let (var, u, v) ->
       alloc var u v (f, regmap, stackmap) None >>= fun x -> regalloc v x last
@@ -466,9 +493,9 @@ let rec conv (order: hoge) var =
   | Op (Primitive FSub, [x; y], d) -> [FOp (Sub, var, x, y, d)]
   | Op (Primitive FDiv, [x; y], d) -> [FOp (Div, var, x, y, d)]
   | Op (Primitive Neg, [x], d) -> [Li (var, 0, d); Op (Sub, var, var, x, d)]
-  | Op (Primitive Not, [x], d) -> conv (CallDir ("not", [x], d)) var
-  | Op (Primitive GE, [x; y], d) -> conv (CallDir ("leq", [y; x], d)) var
-  | Op (Primitive LE, [x; y], d) -> conv (CallDir ("leq", [x; y], d)) var
+  (* | Op (Primitive Not, [x], d) -> (CallDir ("not", [x], d)) var *)
+  (* | Op (Primitive GE, [x; y], d) -> conv (CallDir ("leq", [y; x], d)) var *)
+  (* | Op (Primitive LE, [x; y], d) -> conv (CallDir ("leq", [x; y], d)) var *)
   | Op (Projection (idx, all, ty), [tup], d) -> [Load (var, tup, idx, d)]
   | Op (ArrayPut ty, [arr; idx; elem], d) ->
       [Op (Add, tmp_reg, arr, idx, d); Store (elem, tmp_reg, 0, d)]
@@ -513,6 +540,13 @@ let get_closure_pro arg varg =
   in
   f varg
 
+(* let arg_stack args body =  *)
+(*   let cur = *)
+(*     spill_reg_not_forget args ((fun x -> x), fstreg, (VarMap2.empty, 0)) *)
+(*   in *)
+(*  *)
+(*  *)
+
 let rec top (main, toplevel) =
   let main =
     { label= "main"
@@ -531,10 +565,12 @@ let rec top (main, toplevel) =
         in
         let body = virtual_to_var body 3 in
         let pro, epi = proepi tmp_debug (size + 2) in
+        let _ = Printf.printf "register allocating %s\n" g.label in
         let a = get_closure_pro (List.length g.args) (List.length g.fv) in
         (SetLabel (g.label, FunCall, tmp_debug) :: pro) @ a @ body @ epi )
       li
   in
+  let _ = print_string "register allocate end\n" in
   List.concat li
 
 let emit li stack_start memory_start oc =

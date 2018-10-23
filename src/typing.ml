@@ -238,14 +238,6 @@ let rec gather_eq' type_env e =
       let types = List.map fst res in
       let constraints = List.concat (List.map snd res) in
       (TyTuple types, constraints)
-  (* | LetTuple (names, e1, e2, d) ->
-      let names_var = List.map (fun var -> var.ty) names in
-      let add = List.map (fun var -> (var.name, var.ty)) names in
-      let t1, c1 = gather_eq e1 in
-      let ty = TyTuple names_var in
-      let newenv = add @ type_env in
-      let t2, c2 = gather_eq' newenv e2 in
-      (t2, get_eq t1 ty d :: (c1 @ c2)) *)
   | App (e1, e2, d) ->
       let t1, c1 = gather_eq e1 in
       let res = List.map gather_eq e2 in
