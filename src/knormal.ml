@@ -55,15 +55,15 @@ let rec myprint k indent =
       List.iter (fun x -> print_string x.name ; print_string " ") vars ;
       print_newline ()
   | If (cmp, a, b, e1, e2, d) ->
-      print_string "IF {" ;
+      Printf.printf "%s %s %s %s {\n"  "IF" (show_cmp cmp) a.name b.name;
       myprint e1 (indent + 1) ;
       id indent ;
-      print_string "}\n" ;
+      print_string"}\n";
       id indent ;
-      print_string "}\n" ;
+      print_string"{\n";
       myprint e2 (indent + 1) ;
       id indent ;
-      print_string "}"
+      print_string"}\n";
   | Let (var, e1, e2, d) ->
       print_string ("LET " ^ var.name ^ " = ") ;
       myprint e1 (indent + 1) ;
