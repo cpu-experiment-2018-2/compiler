@@ -226,7 +226,7 @@ let rec make_var_on_reg var (f, regmap, stackmap) =
         let cur = spill_f onreg (f, regmap, stackmap) in
         make_var_on_reg var cur
     | Some idx ->
-        let _ = print_string (Syntax.g2s var) in
+        (* let _ = print_string (Syntax.g2s var) in *)
         let stack_load = get_loader idx var stackmap in
         let f x = f (Let (idx, stack_load, x)) in
         (f, update idx var regmap, stackmap)
@@ -459,9 +459,9 @@ let rec spill_reg_not_forget vars (f, regmap, stackmap) =
 let convert e fstreg args stackinit =
   (* let _ =  Printf.printf "%s" (Virtual.show e) in *)
   (* let _ = List.iter (fun x->Printf.printf "%s "  x.name) args in *)
+  (* let _ = show_stackmap stackinit in *)
   let cur = spill_reg_not_forget args ((fun x -> x), fstreg, stackinit) in
-  (* let _ =  *)
-  (* show_state cur in *)
+  (* let _ = show_state cur in *)
   let f, _, (_, size) = regalloc e cur 3 in
   (f (Ans (Nop tmp_debug)), size)
 

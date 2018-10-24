@@ -1,7 +1,7 @@
 open Syntax
 open Knormal
 
-let threshold = 15
+let threshold = 35
 
 let rec size = function
   | If (_, _, _, e1, e2, _) | Let (_, e1, e2, _) | LetRec ({body= e1}, e2, _) ->
