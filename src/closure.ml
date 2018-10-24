@@ -49,6 +49,10 @@ let f =
     let closure_conversion x = closure_conversion' known x in
     match e with
     | Const (x, d) -> Const (x, d)
+    | Op (Primitive Neg, [x], d) ->
+        AppDir ({name= "neg"; debug= d; ty= Type.TyInt}, [x], d)
+    | Op (Primitive FNeg, [x], d) ->
+        AppDir ({name= "fneg"; debug= d; ty= Type.TyFloat}, [x], d)
     | Op (Primitive Not, [x], d) ->
         AppDir ({name= "not"; debug= d; ty= Type.TyInt}, [x], d)
     | Op (Primitive GE, [x; y], d) ->
