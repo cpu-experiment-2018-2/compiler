@@ -1,0 +1,25 @@
+
+* 問1
+FL実験の第一回の6問のfilter_frで使っていた.
+let filter_fr f l =
+  let func x acc = if f x then x :: acc else acc in
+  fold_right func l []
+これを自由変数が無いようにすると
+llet filter_fr f l =
+  let func x (f,acc) = if f x then x :: acc else (f,acc) in
+  fold_right func l (f,[])
+となり非常にめんどくさい
+
+* 問2
+* 問3
+クロージャを<ラベル,{自由変数}>の用に書く.
+1. f: 自由変数を含むため作られる. <Lf, {z}>.
+2. g: 作られない.
+3. f: 直接に呼ばれる以外の使用があるため作られる.<Lf, {}>.
+4. g: 直接に呼ばれる以外の使用があるため作られる. <Lg,{}>.
+   i: 直接に呼ばれる以外の使用及び,hを自由変数に含むため作られる.<Li,{h}>.
+5. i: 直接に呼ばれる以外の使用があるため作られる. <Li,{}>.
+   f: 直接に呼ばれる以外の使用及び,zを自由変数と含むため作られる. <Lf,{}>.
+6. fact: 自由変数を含まず直接呼ばれるだけなので作られない.
+
+
