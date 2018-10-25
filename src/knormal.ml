@@ -142,10 +142,25 @@ let rec knormalize (e: Syntax.t) =
   | Const (CFloat x, d) -> (Const (CFloat x, d), TyFloat)
   | Const (CBool x, d) -> (Const (CInt (if x then 1 else 0), d), TyInt)
   | Const (CUnit, d) -> (Const (CInt 0, d), TyInt)
-  | Op (op, l, d) ->
+  | Op (Primitive x, l, d) ->
+      let ty =
+        match x with FAdd | FMul | FSub | FDiv | FNeg -> TyFloat | _ -> TyInt
+      in
       let args = List.map knormalize l in
       let k, names = list_to_let args knormalize in
-      (k (Op (op, names, d)), TyInt)
+      (k (Op (Primitive x, names, d)), ty)
+  | Op (ArrayGet ty, l, d) ->
+      let args = List.map knormalize l in
+      let k, names = list_to_let args knormalize in
+      (k (Op (ArrayGet ty, names, d)), ty)
+  | Op (ArrayPut x, l, d) ->
+      let args = List.map knormalize l in
+      let k, names = list_to_let args knormalize in
+      (k (Op (ArrayPut x, names, d)), TyInt)
+  | Op (Projection (a, b, ty), l, d) ->
+      let args = List.map knormalize l in
+      let k, names = list_to_let args knormalize in
+      (k (Op (Projection (a, b, ty), names, d)), ty)
   | If (Op (Primitive EQ, [u1; u2], d0), e2, e3, d1) ->
       insert_let (knormalize u1) (fun x ->
           insert_let (knormalize u2) (fun y ->
