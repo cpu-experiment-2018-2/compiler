@@ -4,9 +4,9 @@ CC = gcc
 CFLAGS = -g -O2 -Wall
 
 LIBINSTALL_FILES=build
-DOCS = src/common.ml src/type.ml src/syntax.ml src/lexer.ml src/parser.ml src/typing.ml src/knormal.ml src/alpha.ml src/anormal.ml src/constantFold.ml src/inline.ml src/cseElimination.ml src/beta.ml src/removeLet.ml src/closure.ml src/lambdaLifiting.ml src/virtual.ml src/regalloc.ml src/asm.ml 
+DOCS = src/common.ml src/type.ml src/syntax.ml src/lexer.ml src/parser.ml src/typing.ml src/knormal.ml src/alpha.ml src/anormal.ml src/constantFold.ml src/inline.ml src/cseElimination.ml src/beta.ml src/removeLet.ml src/closure.ml src/lambdaLifting.ml src/virtual.ml src/regalloc.ml src/asm.ml 
 
-SOURCES = src/common.ml src/util.c src/type.ml src/syntax.ml src/lexer.mll src/parser.mly src/typing.ml src/knormal.ml src/alpha.ml src/anormal.ml src/constantFold.ml src/inline.ml src/cseElimination.ml src/beta.ml src/removeLet.ml src/closure.ml src/lambdaLifiting.ml src/virtual.ml  src/asm.ml src/regalloc.ml src/main.ml 
+SOURCES = src/common.ml src/util.c src/type.ml src/syntax.ml src/lexer.mll src/parser.mly src/typing.ml src/knormal.ml src/alpha.ml src/anormal.ml src/constantFold.ml src/inline.ml src/cseElimination.ml src/beta.ml src/removeLet.ml src/closure.ml src/lambdaLifting.ml src/virtual.ml  src/asm.ml src/regalloc.ml src/main.ml 
 RESULT = compile
 OCAMLDOCFLAGS=-charset utf-8
 
