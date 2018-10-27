@@ -38,11 +38,6 @@ let (toplevel: debug fundef list ref) = ref []
 
 let add_toplevel fundef = toplevel := fundef :: !toplevel
 
-(* let find_toplevel var =
-  match List.find_opt (fun x -> x.f.name = var.name) !toplevel with
-  | None -> List.exists (fun x -> fst x = var.name) Typing.builtin_function'
-  | Some x -> true *)
-
 let f =
   let _ = toplevel := [] in
   let rec closure_conversion' known (e: Knormal.t) =

@@ -140,19 +140,6 @@ let getreg_by_val var l =
               (fun (x, y) ->
                 match y with Some y -> compare_g y var = 0 | None -> false )
               l))
-
-(* let getreg_by_val var l = *)
-(*   match var with *)
-(*   | Int x -> x *)
-(*   | _ -> *)
-(*       fst *)
-(*         (failwith_message *)
-(*            ("getreg_by_val " ^ Syntax.g2s var) *)
-(*            (List.find_opt *)
-(*               (fun (x, y) -> *)
-(*                 match y with Some y -> compare_g y var = 0 | None -> false ) *)
-(*               l)) *)
-
 let is_on_reg l var =
   match var with
   | Int x -> true
@@ -268,10 +255,6 @@ let put_args (f, regmap, stackmap) var reg args =
   let cur = getreg_by_val var regmap in
   if cur = reg then (f, regmap, stackmap)
   else move var reg (f, regmap, stackmap)
-
-(* let make_vars_args vars (f,regmap,stackmap) = *)
-(*     fst(List.fold_left (fun (p,acc) x -> *)
-(*         (put_args p x acc vars,acc+1) ) ((f, regmap, stackmap),3) vars) *)
 
 (** varをレジスタとしたいか
      (i) 次の関数の引数になるのなら%r3,%r4,...に入れたい
@@ -425,8 +408,6 @@ let rec alloc var u cont (f, regmap, stackmap) last =
   (f, regmap, stackmap)
 
 and regalloc e (f, regmap, stackmap) last =
-  (* let _ = show_state (f, regmap, stackmap) in *)
-  (* let _ = print_string (Virtual.show_k e) in *)
   let hasempty =
     List.length
       (List.filter

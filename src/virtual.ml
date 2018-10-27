@@ -9,18 +9,6 @@ let tmp_var () = {name= Syntax.genvar (); debug= {pos= Global}; ty= TyInt}
 
 type cmpty = F | I [@@deriving show]
 
-let mem = ref 30000
-
-let get () =
-  let tmp = !mem in
-  mem := !mem + 1 ;
-  tmp
-
-let malloc size =
-  let tmp = !mem in
-  mem := size + !mem ;
-  tmp
-
 type ('a, 'b) u =
   | Nop of 'a
   | Li of int * 'a
@@ -87,12 +75,6 @@ type ('a, 'b) fundef =
   ; fv: 'b list }
 
 type fundef_t = (Syntax.debug, Syntax.var) fundef
-
-let rec collect_local x =
-  match x with
-  | Ans (If (_, x, y, e1, e2, d)) -> max (collect_local e1) (collect_local e2)
-  | Ans _ -> 0
-  | Let (x, x1, x2) -> 1 + collect_local (Ans x1) + collect_local x2
 
 let rec concat var e1 e2 =
   match e1 with
@@ -196,14 +178,6 @@ let rec closure_to_virtual' (e: Closure.t) =
                   (Ans (Var (y, d)), List.length names - 1))) )
   | _ -> failwith (Closure.show e)
 
-let rec g_last_var = function
-  | Let (x, y, t) ->
-      let p, var = g_last_var t in
-      (Let (x, y, p), var)
-  | Ans (Var (x, t)) -> (Ans (Var (x, t)), x)
-  | Ans s ->
-      let x = tmp_var () in
-      (Let (x, s, Ans (Var (x, x.debug))), x)
 
 let rec function_to_virtual2 (fundef: debug Closure.fundef) =
   let body = closure_to_virtual' fundef.body in
@@ -214,16 +188,4 @@ let rec function_to_virtual2 (fundef: debug Closure.fundef) =
   ; ret= Syntax.Var (tmp_var ())
   ; local= 0 }
 
-(*  *)
-(* let rec function_to_virtual (fundef: debug Closure.fundef) = 
-  let body = closure_to_virtual' fundef.body in
-  let body, last_var = g_last_var body in
-  let l = collect_local body in
-  { label= fundef.f.name
-  ; args= fundef.args
-  ; body
-  ; ret= last_var
-  ; fv = fundef.closure_fv
-  ; local= l + List.length fundef.args} *)
-(* let f (x, y) = ( (closure_to_virtual' x), List.map function_to_virtual y) *)
 let h (x, y) = (closure_to_virtual' x, List.map function_to_virtual2 y)
