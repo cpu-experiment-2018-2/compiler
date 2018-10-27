@@ -21,6 +21,10 @@ let rec inline env e =
     match Common.assoc_opt y.name env with
     | Some fd ->
         let _ = Printf.printf "%s is inlined\n" fd.f.name in
+        (* let _ = List.iter (fun x -> Printf.printf "%s " x.name) fd.args in *)
+        (* let _ = print_newline() in *)
+        (* let _ = List.iter (fun x -> Printf.printf "%s " x.name) ys in *)
+        (* let _ = print_newline() in *)
         let bind = List.map2 (fun x y -> (x.name, y.name)) fd.args ys in
         Alpha.g bind fd.body
     | None ->

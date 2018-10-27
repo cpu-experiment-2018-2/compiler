@@ -477,8 +477,7 @@ let rec conv (order: hoge) var =
   | Op (Primitive FDiv, [x; y], d) -> [FOp (Div, var, x, y, d)]
   | Op (Primitive Neg, [x], d) -> [Op (Sub, var, 0, x, d)]
   | Op (Primitive FNeg, [x], d) -> [FOp (Sub, var, 0, x, d)]
-  | Op (Projection (idx, all, ty), [tup], d) ->
-      [Load (var, tup, idx, d)]
+  | Op (Projection (idx, all, ty), [tup], d) -> [Load (var, tup, idx, d)]
   | Op (ArrayPut ty, [arr; idx; elem], d) ->
       [Op (Add, tmp_reg, arr, idx, d); Store (elem, tmp_reg, 0, d)]
   | Op (ArrayGet ty, [arr; idx], d) ->
@@ -486,7 +485,6 @@ let rec conv (order: hoge) var =
   | Load (t, s, off, d) -> [Load (t, s, off, d)]
   | LetLoad (s, off, d) -> [Load (var, s, off, d)]
   | Store (t, s, off, d) -> [Store (t, s, off, d)]
-
   | If (cmp, x, y, tr, fa, c, d) ->
       let sy = "label" ^ Syntax.genvar () in
       let t = "label" ^ Syntax.genvar () in

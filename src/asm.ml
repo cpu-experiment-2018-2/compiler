@@ -107,7 +107,7 @@ let rec emit_sugar oc ch (e: string u) =
       Printf.fprintf oc "\tstore %s,%s, %d (* %s *)\n" rt rs offset
         (Syntax.pos_to_str d.pos)
   | Cmpf (ra, rb, d) ->
-       Printf.fprintf oc "\tcmpf %s,%s(* %s *)\n" ra rb
+      Printf.fprintf oc "\tcmpf %s,%s(* %s *)\n" ra rb
         (Syntax.pos_to_str d.pos)
   | Cmpd (ra, rb, d) ->
       Printf.fprintf oc "\tcmpd %s,%s(* %s *)\n" ra rb
@@ -121,7 +121,6 @@ let rec emit_sugar oc ch (e: string u) =
   | BLT (label, d) ->
       Printf.fprintf oc "\tblt %s (* %s *)\n" (ch label)
         (Syntax.pos_to_str d.pos)
-
   | Jump (label, d) ->
       Printf.fprintf oc "\tjump %s (* %s *)\n" (ch label)
         (Syntax.pos_to_str d.pos)

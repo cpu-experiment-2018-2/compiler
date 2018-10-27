@@ -38,9 +38,10 @@ let rec fv2 e =
 
 (** alpha変換なされているものとする.
     fv_envはダイレクトに呼べる関数から自由変数への写像
+    candir = dirに呼べる関数の集合(まあfv_envから復元しても良いが)
     **)
-let rec lifting fv_env e =
-  let g = lifting fv_env in
+let rec lifting fv_env candir e =
+  let g = lifting fv_env candir in
   match e with
   | If (cmp, x, y, e1, e2, d) -> If (cmp, x, y, g e1, g e2, d)
   | Let (var, e1, e2, d) -> Let (var, g e1, g e2, d)
@@ -48,20 +49,22 @@ let rec lifting fv_env e =
       let used_as_value = VarSet.union (fv2 e1) (fv2 fd.body) in
       if VarSet.mem fd.f used_as_value then
         let _ = Printf.printf "function %s is closure\n" fd.f.name in
-        LetRec (fd, lifting fv_env e1, d)
+        LetRec (fd, g e1, d)
       else
         let fvs =
-          VarSet.elements
-            (VarSet.diff (fv fd.body) (VarSet.of_list (fd.f :: fd.args)))
+          VarSet.elements (VarSet.diff 
+            (VarSet.diff (fv fd.body) (VarSet.of_list (fd.f :: fd.args))) candir )
         in
-        if List.length fvs > 15 then
+        let argc = List.length fvs + List.length fd.args in
+        if argc > 16 then
           let _ =
             Printf.printf
-              "function %s is not closure, it has too many argument. So \
-               closure will be made \n"
+              "function %s is not closure, it has too many argument %d. So \
+               closure will be made  \n"
               fd.f.name
+              argc
           in
-          LetRec (fd, lifting fv_env e1, d)
+          LetRec (fd, g e1, d)
         else
           let _ =
             Printf.printf
@@ -71,14 +74,18 @@ let rec lifting fv_env e =
           let newargs = fd.args @ fvs in
           (* 型の更新はめんどいからとばす *)
           let newenv = VarMap.add fd.f fvs fv_env in
-          let newfd = {fd with args= newargs; body= lifting newenv fd.body} in
-          LetRec (newfd, lifting newenv e1, d)
+          let candir = VarSet.add fd.f candir in
+          let newfd = {fd with args= newargs; body= lifting newenv candir fd.body} in
+          LetRec (newfd, lifting newenv candir e1, d)
   | App (var, vars, d) when VarMap.mem var fv_env ->
       App (var, vars @ VarMap.find var fv_env, d)
   | _ -> e
 
-let rec (f : Knormal.t -> Knormal.t) =
+let rec (f: Knormal.t -> Knormal.t) =
   lifting
     (List.fold_left
        (fun acc x -> VarMap.add x [] acc)
        VarMap.empty Typing.builtin_vars)
+    (List.fold_left
+       (fun acc x -> VarSet.add x acc)
+       VarSet.empty Typing.builtin_vars)
