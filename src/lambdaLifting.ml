@@ -54,7 +54,7 @@ let rec lifting fv_env e =
           VarSet.elements
             (VarSet.diff (fv fd.body) (VarSet.of_list (fd.f :: fd.args)))
         in
-        if List.length fvs > 20 then
+        if List.length fvs > 15 then
           let _ =
             Printf.printf
               "function %s is not closure, it has too many argument. So \

@@ -49,18 +49,8 @@ let f =
     let closure_conversion x = closure_conversion' known x in
     match e with
     | Const (x, d) -> Const (x, d)
-    | Op (Primitive Neg, [x], d) ->
-        AppDir ({name= "neg"; debug= d; ty= Type.TyInt}, [x], d)
-    | Op (Primitive FNeg, [x], d) ->
-        AppDir ({name= "fneg"; debug= d; ty= Type.TyFloat}, [x], d)
     | Op (Primitive Not, [x], d) ->
         AppDir ({name= "not"; debug= d; ty= Type.TyInt}, [x], d)
-    | Op (Primitive GE, [x; y], d) ->
-        AppDir ({name= "leq"; debug= d; ty= Type.TyInt}, [y; x], d)
-    | Op (Primitive LE, [x; y], d) ->
-        AppDir ({name= "leq"; debug= d; ty= Type.TyInt}, [x; y], d)
-    | Op (Primitive EQ, [x; y], d) ->
-        AppDir ({name= "eq"; debug= d; ty= Type.TyInt}, [x; y], d)
     | Op (op, l, d) -> Op (op, l, d)
     | If (cmp, n1, n2, e1, e2, d) ->
         If (cmp, n1, n2, closure_conversion e1, closure_conversion e2, d)
@@ -77,10 +67,6 @@ let f =
             let e1' = closure_conversion' known f.body in
             (known, e1') )
         in
-        (* let fv' = *)
-        (*   VarSet.elements *)
-        (*     (VarSet.diff (fv e1') (VarSet.of_list (f.f :: f.args))) *)
-        (* in *)
         let fv' =
           VarSet.elements (VarSet.diff (fv e1') (VarSet.of_list f.args))
         in

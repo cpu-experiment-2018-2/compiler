@@ -36,8 +36,10 @@ type 'reg u =
   | Load of 'reg * 'reg * int * Syntax.debug
   | Store of 'reg * 'reg * int * Syntax.debug
   | Cmpd of 'reg * 'reg * Syntax.debug
+  | Cmpf of 'reg * 'reg * Syntax.debug
   | BEQ of label * Syntax.debug
   | BLE of label * Syntax.debug
+  | BLT of label * Syntax.debug
   | Jump of label * Syntax.debug
   | SetLabel of string * labelType * Syntax.debug
   | BLR
@@ -123,6 +125,9 @@ let rec emit_sugar oc ch (e: string u) =
   | Store (rt, rs, offset, d) ->
       Printf.fprintf oc "\tstore %s,%s, %d (* %s *)\n" rt rs offset
         (Syntax.pos_to_str d.pos)
+  | Cmpf (ra, rb, d) ->
+       Printf.fprintf oc "\tcmpf %s,%s(* %s *)\n" ra rb
+        (Syntax.pos_to_str d.pos)
   | Cmpd (ra, rb, d) ->
       Printf.fprintf oc "\tcmpd %s,%s(* %s *)\n" ra rb
         (Syntax.pos_to_str d.pos)
@@ -132,6 +137,10 @@ let rec emit_sugar oc ch (e: string u) =
   | BLE (label, d) ->
       Printf.fprintf oc "\tble %s (* %s *)\n" (ch label)
         (Syntax.pos_to_str d.pos)
+  | BLT (label, d) ->
+      Printf.fprintf oc "\tblt %s (* %s *)\n" (ch label)
+        (Syntax.pos_to_str d.pos)
+
   | Jump (label, d) ->
       Printf.fprintf oc "\tjump %s (* %s *)\n" (ch label)
         (Syntax.pos_to_str d.pos)
@@ -152,8 +161,10 @@ let rec apply f = function
   | Load (x, y, z, d) -> Load (f x, f y, z, d)
   | Store (x, y, z, d) -> Store (f x, f y, z, d)
   | Cmpd (x, y, d) -> Cmpd (f x, f y, d)
+  | Cmpf (x, y, d) -> Cmpf (f x, f y, d)
   | BEQ (label, d) -> BEQ (label, d)
   | BLE (label, d) -> BLE (label, d)
+  | BLT (label, d) -> BLT (label, d)
   | BL (label, d) -> BL (label, d)
   | Jump (label, d) -> Jump (label, d)
   | SetLabel (label, t, d) -> SetLabel (label, t, d)

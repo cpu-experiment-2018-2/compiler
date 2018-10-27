@@ -7,6 +7,8 @@ type label = string [@@deriving show]
 
 let tmp_var () = {name= Syntax.genvar (); debug= {pos= Global}; ty= TyInt}
 
+type cmpty = F | I [@@deriving show]
+
 let mem = ref 30000
 
 let get () =
@@ -29,13 +31,22 @@ type ('a, 'b) u =
   | Load of 'b * 'b * int * 'a
   | LetLoad of 'b * int * 'a
   | Store of 'b * 'b * int * 'a
-  | If of Knormal.cmp * 'b * 'b * ('a, 'b) v * ('a, 'b) v * 'a
+  | If of Knormal.cmp * 'b * 'b * ('a, 'b) v * ('a, 'b) v * cmpty * 'a
   | CallDir of label * 'b list * 'a
   | CallCls of 'b * 'b list * 'a
 [@@deriving show]
 
 and ('a, 'b) v = Ans of ('a, 'b) u | Let of 'b * ('a, 'b) u * ('a, 'b) v
 [@@deriving show]
+
+let insert_alloc x y z =
+  Let
+    ( y
+    , LetLoad (Int 0, 0, tmp_debug)
+    , Let
+        ( Int 29
+        , Op (Primitive Add, [x; y], tmp_debug)
+        , Let (Int 0, Store (Int 29, Int 0, 0, tmp_debug), z) ) )
 
 let rec apply f e =
   match e with
@@ -47,7 +58,8 @@ let rec apply f e =
   | Load (x, y, off, d) -> Load (f x, f y, off, d)
   | LetLoad (y, off, d) -> LetLoad (f y, off, d)
   | Store (x, y, off, d) -> Store (f x, f y, off, d)
-  | If (cmp, x, y, e1, e2, d) -> If (cmp, f x, f y, apply' f e1, apply' f e2, d)
+  | If (cmp, x, y, e1, e2, c, d) ->
+      If (cmp, f x, f y, apply' f e1, apply' f e2, c, d)
   | CallDir (l, vars, d) -> CallDir (l, List.map f vars, d)
   | CallCls (l, vars, d) -> CallCls (f l, List.map f vars, d)
 
@@ -99,7 +111,7 @@ let rec closure_to_virtual' (e: Closure.t) =
   | Op (op, l, d) -> to_g (Ans (Op (op, l, d)))
   | If (cmp, x, y, e1, e2, d) -> (
     match x.ty with
-    | Type.TyBool | Type.TyInt | Type.TyFloat ->
+    | Type.TyBool | Type.TyInt ->
         Ans
           (If
              ( cmp
@@ -107,6 +119,17 @@ let rec closure_to_virtual' (e: Closure.t) =
              , conv y
              , closure_to_virtual e1
              , closure_to_virtual e2
+             , I
+             , d ))
+    | Type.TyFloat ->
+        Ans
+          (If
+             ( cmp
+             , conv x
+             , conv y
+             , closure_to_virtual e1
+             , closure_to_virtual e2
+             , F
              , d ))
     | _ -> failwith "equality is only bool and int" )
   | Let (var, e1, e2, d) ->
@@ -149,32 +172,28 @@ let rec closure_to_virtual' (e: Closure.t) =
                    ( Int 0
                    , Store (Int 29, Int 0, 0, tmp_debug)
                    , closure_to_virtual e ) ) ))
-  (* | AppCls (var, ys, d) -> Ans (CallCls (var, ys, d))  *)
-  | AppDir (var, ys, d) ->
-      to_g (Ans (CallDir (var.name, ys, d)))
-  (*  *)
+  | AppDir (var, ys, d) -> to_g (Ans (CallDir (var.name, ys, d)))
   | AppCls (var, ys, d) -> to_g (Ans (CallCls (var, ys, d)))
-  (*  *)
   | Tuple (names, d) ->
       let ( >>= ) x f = f x in
-      to_g
-        ( tmp_var ()
-        >>= fun x ->
-        Let
-          ( x
-          , Li (List.length names, d)
-          , tmp_var ()
-            >>= fun y ->
-            Let
-              ( y
-              , CallDir ("alloc", [x], d)
-              , fst
-                  (List.fold_right
-                     (fun z (acc, counter) ->
-                       ( Let (tmp_var (), Store (z, y, counter, d), acc)
-                       , counter - 1 ) )
-                     names
-                     (Ans (Var (y, d)), List.length names - 1)) ) ) )
+      Syntax.Var (tmp_var ())
+      >>= fun x ->
+      Let
+        ( x
+        , Li (List.length names, d)
+        , Syntax.Var (tmp_var ())
+          >>= fun y ->
+          insert_alloc x y
+            (fst
+               (List.fold_right
+                  (fun z (acc, counter) ->
+                    ( Let
+                        ( Syntax.Var (tmp_var ())
+                        , Store (Var z, y, counter, d)
+                        , acc )
+                    , counter - 1 ) )
+                  names
+                  (Ans (Var (y, d)), List.length names - 1))) )
   | _ -> failwith (Closure.show e)
 
 let rec g_last_var = function

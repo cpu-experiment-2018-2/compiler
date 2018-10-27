@@ -49,7 +49,7 @@ let rec get_liveu' e =
   | CallCls (f, vars, _) -> VarSet2.of_list (f :: vars)
   | Load (x, y, _, _) | Store (x, y, _, _) -> VarSet2.of_list [x; y]
   | LetLoad (y, _, _) -> VarSet2.of_list [y]
-  | If (_, x, y, e1, e2, d) ->
+  | If (_, x, y, e1, e2, c, d) ->
       VarSet2.union
         (VarSet2.union (VarSet2.of_list [x; y]) (get_livev' e1))
         (get_livev' e2)
@@ -93,7 +93,7 @@ let rec liveness_after_call e =
     match u with
     | CallDir (_, vars, _) -> g vars (Some v)
     | CallCls (var, vars, _) -> g (vars @ [var]) (Some v)
-    | If (cmp, _, _, e1, e2, d) ->
+    | If (cmp, _, _, e1, e2, c, d) ->
         let x1, l1, f1 = liveness_after_call e1 in
         let x2, l2, f2 = liveness_after_call e2 in
         if f1 && f2 then (x1, VarSet2.union l1 l2, true)
@@ -105,7 +105,7 @@ let rec liveness_after_call e =
     match u with
     | CallDir (_, vars, _) -> g vars None
     | CallCls (var, vars, _) -> g (vars @ [var]) None
-    | If (cmp, _, _, e1, e2, d) ->
+    | If (cmp, _, _, e1, e2, c, d) ->
         let x1, l1, f1 = liveness_after_call e1 in
         let x2, l2, f2 = liveness_after_call e2 in
         if f1 || f2 then (x1, VarSet2.union l1 l2, true)
@@ -358,7 +358,7 @@ let rec alloc var u cont (f, regmap, stackmap) last =
                , x ))
         in
         (Var (3, tmp_debug), (f, update 3 var init, stackmap))
-    | If (cmp, x, y, e1, e2, d) ->
+    | If (cmp, x, y, e1, e2, c, d) ->
         let f', regmap, stackmap =
           make_vars_on_reg [x; y] ((fun x -> x), regmap, stackmap)
         in
@@ -395,6 +395,7 @@ let rec alloc var u cont (f, regmap, stackmap) last =
             , getreg_by_val y regmap
             , f1 (Ans (Nop tmp_debug))
             , f2 (Ans (Nop tmp_debug))
+            , c
             , d )
         , (f, regafter, (fst stackmap, max (snd s2) (snd s1))) )
   in
@@ -493,10 +494,8 @@ let rec conv (order: hoge) var =
   | Op (Primitive FAdd, [x; y], d) -> [FOp (Add, var, x, y, d)]
   | Op (Primitive FSub, [x; y], d) -> [FOp (Sub, var, x, y, d)]
   | Op (Primitive FDiv, [x; y], d) -> [FOp (Div, var, x, y, d)]
-  | Op (Primitive Neg, [x], d) -> [Li (var, 0, d); Op (Sub, var, var, x, d)]
-  (* | Op (Primitive Not, [x], d) -> (CallDir ("not", [x], d)) var *)
-  (* | Op (Primitive GE, [x; y], d) -> conv (CallDir ("leq", [y; x], d)) var *)
-  (* | Op (Primitive LE, [x; y], d) -> conv (CallDir ("leq", [x; y], d)) var *)
+  | Op (Primitive Neg, [x], d) -> [Op (Sub, var, 0, x, d)]
+  | Op (Primitive FNeg, [x], d) -> [FOp (Sub, var, 0, x, d)]
   | Op (Projection (idx, all, ty), [tup], d) ->
       [Load (var, tup, idx, d)]
   | Op (ArrayPut ty, [arr; idx; elem], d) ->
@@ -506,7 +505,8 @@ let rec conv (order: hoge) var =
   | Load (t, s, off, d) -> [Load (t, s, off, d)]
   | LetLoad (s, off, d) -> [Load (var, s, off, d)]
   | Store (t, s, off, d) -> [Store (t, s, off, d)]
-  | If (cmp, x, y, tr, fa, d) ->
+
+  | If (cmp, x, y, tr, fa, c, d) ->
       let sy = "label" ^ Syntax.genvar () in
       let t = "label" ^ Syntax.genvar () in
       let p1 = SetLabel (sy ^ ".if.true", Other, d) :: virtual_to_var tr var in
@@ -514,10 +514,11 @@ let rec conv (order: hoge) var =
         (SetLabel (sy ^ ".if.false", Other, d) :: virtual_to_var fa var)
         @ [Jump (t, d)]
       in
-      Cmpd (x, y, d)
+      (if c = I then Cmpd (x, y, d) else Cmpf (x, y, d))
       :: ( match cmp with
          | EQ -> BEQ (sy ^ ".if.true", d)
-         | LE -> BLE (sy ^ ".if.true", d) )
+         | LE -> BLE (sy ^ ".if.true", d)
+         | LT -> BLT (sy ^ ".if.true", d) )
       :: (p2 @ p1 @ [SetLabel (t, Other, d)])
   | Var (x, d) -> [Opi (Add, var, x, 0, d)]
   | CallDir (label, args, d) -> [BL (label, d)]

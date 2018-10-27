@@ -31,7 +31,9 @@ type primitive =
   | Div
   | EQ
   | LE
+  | LT
   | GE
+  | GT
   | FAdd
   | FMul
   | FSub
@@ -55,7 +57,7 @@ let get_o_info p =
   let tmp =
     match p with
     | Add | Mul | Sub | Div -> ([TyInt; TyInt], TyInt)
-    | EQ | LE | GE ->
+    | EQ | LE | LT | GE | GT ->
         let v = TyVar (Type.genvar ()) in
         ([v; v], TyBool)
     | FAdd | FMul | FSub | FDiv -> ([TyFloat; TyFloat], TyFloat)

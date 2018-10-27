@@ -1,7 +1,7 @@
 open Syntax
 open Type
 
-type cmp = LE | EQ [@@deriving show]
+type cmp = LE | EQ | LT [@@deriving show]
 
 type 'a u =
   | Const of c * 'a
@@ -142,6 +142,12 @@ let rec knormalize (e: Syntax.t) =
   | Const (CFloat x, d) -> (Const (CFloat x, d), TyFloat)
   | Const (CBool x, d) -> (Const (CInt (if x then 1 else 0), d), TyInt)
   | Const (CUnit, d) -> (Const (CInt 0, d), TyInt)
+  | Op (Primitive EQ, l, d)
+   |Op (Primitive GE, l, d)
+   |Op (Primitive GT, l, d)
+   |Op (Primitive LE, l, d)
+   |Op (Primitive LT, l, d) ->
+      knormalize (If (e, Const (CInt 1, d), Const (CInt 0, d), d))
   | Op (Primitive x, l, d) ->
       let ty =
         match x with FAdd | FMul | FSub | FDiv | FNeg -> TyFloat | _ -> TyInt
@@ -179,6 +185,18 @@ let rec knormalize (e: Syntax.t) =
               let e2, t2 = knormalize e2 in
               let e3, t3 = knormalize e3 in
               (If (LE, y, x, e2, e3, d1), t2) ) )
+  | If (Op (Primitive LT, [u1; u2], d0), e2, e3, d1) ->
+      insert_let (knormalize u1) (fun x ->
+          insert_let (knormalize u2) (fun y ->
+              let e2, t2 = knormalize e2 in
+              let e3, t3 = knormalize e3 in
+              (If (LT, x, y, e2, e3, d1), t2) ) )
+  | If (Op (Primitive GT, [u1; u2], d0), e2, e3, d1) ->
+      insert_let (knormalize u1) (fun x ->
+          insert_let (knormalize u2) (fun y ->
+              let e2, t2 = knormalize e2 in
+              let e3, t3 = knormalize e3 in
+              (If (LT, y, x, e2, e3, d1), t2) ) )
   | Var (x, d) -> (Var (x, d), x.ty)
   | If (e1, e2, e3, d) ->
       let e1, t1 = knormalize e1 in
