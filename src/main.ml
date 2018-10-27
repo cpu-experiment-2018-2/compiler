@@ -40,7 +40,7 @@ let lexbuf oc l =
   let p = Anormal.f p in
   let _ = print_string "\nanormalized\n" in
   let _ = if !show_anormal then Knormal.myprint p 0 else () in
-  let p = LambdaLifting.f p in
+  (* let p = LambdaLifting.f p in *)
   let _ = if !show_afeter_lambda_lifting then Knormal.myprint p 0 else () in
 
   let p = optimtime 0 p in
