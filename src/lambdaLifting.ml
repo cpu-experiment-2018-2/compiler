@@ -51,18 +51,21 @@ let rec lifting fv_env candir e =
         let _ = Printf.printf "function %s is closure\n" fd.f.name in
         LetRec (fd, g e1, d)
       else
+        let candir' = VarSet.add fd.f candir in
+        let newbody = lifting fv_env candir' fd.body in
         let fvs =
-          VarSet.elements (VarSet.diff 
-            (VarSet.diff (fv fd.body) (VarSet.of_list (fd.f :: fd.args))) candir )
+          VarSet.elements
+            (VarSet.diff
+               (VarSet.diff (fv newbody) (VarSet.of_list (fd.f :: fd.args)))
+               candir)
         in
         let argc = List.length fvs + List.length fd.args in
-        if argc > 16 then
+        if argc > 25 then
           let _ =
             Printf.printf
               "function %s is not closure, it has too many argument %d. So \
                closure will be made  \n"
-              fd.f.name
-              argc
+              fd.f.name argc
           in
           LetRec (fd, g e1, d)
         else
@@ -75,13 +78,15 @@ let rec lifting fv_env candir e =
           (* 型の更新はめんどいからとばす *)
           let newenv = VarMap.add fd.f fvs fv_env in
           let candir = VarSet.add fd.f candir in
-          let newfd = {fd with args= newargs; body= lifting newenv candir fd.body} in
+          let newfd =
+            {fd with args= newargs; body= lifting newenv candir fd.body}
+          in
           LetRec (newfd, lifting newenv candir e1, d)
   | App (var, vars, d) when VarMap.mem var fv_env ->
       App (var, vars @ VarMap.find var fv_env, d)
   | _ -> e
 
-let rec (f: Knormal.t -> Knormal.t) =
+let rec (f : Knormal.t -> Knormal.t) =
   lifting
     (List.fold_left
        (fun acc x -> VarMap.add x [] acc)
