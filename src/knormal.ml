@@ -84,6 +84,7 @@ let rec myprint k indent =
       print_string (var.name ^ " ") ;
       List.iter (fun x -> print_string (x.name ^ " ")) vars ;
       print_newline ()
+  | Tuple (t, d) -> print_string "TUPLE" ; print_newline ()
 
 let rec fv = function
   | Const _ -> []
@@ -118,7 +119,7 @@ let insert_let (e, ty) k =
       let e', t = k alpha in
       (Let (alpha, e, e', get_debug e), t)
 
-let rec list_to_let (es: (t * ty) list) knormalize =
+let rec list_to_let (es : (t * ty) list) knormalize =
   let res =
     List.map
       (fun (e, ty) ->
@@ -136,7 +137,7 @@ let rec list_to_let (es: (t * ty) list) knormalize =
       res
   , List.map fst res )
 
-let rec knormalize (e: Syntax.t) =
+let rec knormalize (e : Syntax.t) =
   match e with
   | Const (CInt x, d) -> (Const (CInt x, d), TyInt)
   | Const (CFloat x, d) -> (Const (CFloat x, d), TyFloat)
