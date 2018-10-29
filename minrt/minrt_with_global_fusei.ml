@@ -9,6 +9,13 @@
 (*                                                              *)
 (****************************************************************)
 
+let rec fsqr x = x *. x in
+let rec fabs x = if x > 0.0 then x else (-1.0) *. x in
+let rec fhalf x = x *. 0.5 in
+let rec fisneg x = x < 0.0 in   
+let rec fispos x = x > 0.0 in
+let rec fiszero x = if x < 0.00001  then (if x > (-0.00001) then true  else false) else false in 
+let rec fless x y = x < y in
 (*NOMINCAML open MiniMLRuntime;;*)
 (*NOMINCAML open Globals;;*)
 (* (*MINCAML*) let true = 1 in *)
@@ -1766,7 +1773,7 @@ let rec trace_ray nref energy dirvec pixel dist =
       utexture obj intersection_point; (*テクスチャを計算 *)
 
       (* pixel tupleに情報を格納する *)
-      surface_ids.(nref) <- obj_id * 4 + intsec_rectside.(0);
+      surface_ids.(nref) <- obj_id +obj_id + obj_id+ obj_id + intsec_rectside.(0);
       let intersection_points = p_intersection_points pixel in
       veccpy intersection_points.(nref) intersection_point;
 
@@ -2363,7 +2370,7 @@ in
 
 (* 平面について情報を追加する *)
 let rec setup_surface_reflection obj_id obj =
-  let sid = obj_id * 4 + 1 in
+  let sid = obj_id + obj_id + 1 in
   let nr = n_reflections.(0) in
   let br = 1.0 -. o_diffuse obj in
   let p = veciprod light (o_param_abc obj) in
@@ -2420,6 +2427,6 @@ let rec rt size_x size_y =
 )
 in
 
-let _ = rt 512 512
+let _ = rt 128 128
 
 in 0
