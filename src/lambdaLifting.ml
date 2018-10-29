@@ -3,7 +3,9 @@
 open Syntax
 open Knormal
 
-(** 
+let threshould = 25
+
+(* 
  * lambda lifting をすることによって値として関数が後に出現しない場合は自由変数を含んでいたとしてもクロージャが生成されないようにすることができた.
 *)
 let rec fv e =
@@ -49,7 +51,7 @@ let rec lifting fv_env candir e =
       let used_as_value = VarSet.union (fv2 e1) (fv2 fd.body) in
       if VarSet.mem fd.f used_as_value then
         let _ = Printf.printf "function %s is closure\n" fd.f.name in
-        LetRec (fd, g e1, d)
+        LetRec ({fd with body= g fd.body}, g e1, d)
       else
         let candir' = VarSet.add fd.f candir in
         let newbody = lifting fv_env candir' fd.body in
@@ -60,14 +62,14 @@ let rec lifting fv_env candir e =
                candir)
         in
         let argc = List.length fvs + List.length fd.args in
-        if argc > 25 then
+        if argc > threshould then
           let _ =
             Printf.printf
               "function %s is not closure, it has too many argument %d. So \
                closure will be made  \n"
               fd.f.name argc
           in
-          LetRec (fd, g e1, d)
+          LetRec ({fd with body= g fd.body}, g e1, d)
         else
           let _ =
             Printf.printf
@@ -76,17 +78,19 @@ let rec lifting fv_env candir e =
           in
           let newargs = fd.args @ fvs in
           (* 型の更新はめんどいからとばす *)
+          let _ = Printf.printf "function %s " fd.f.name in
+          let _ = List.iter (fun x -> Printf.printf "%s " x.name) newargs in
+          let _ = print_newline () in
           let newenv = VarMap.add fd.f fvs fv_env in
-          let candir = VarSet.add fd.f candir in
           let newfd =
-            {fd with args= newargs; body= lifting newenv candir fd.body}
+            {fd with args= newargs; body= lifting newenv candir' fd.body}
           in
-          LetRec (newfd, lifting newenv candir e1, d)
+          LetRec (newfd, lifting newenv candir' e1, d)
   | App (var, vars, d) when VarMap.mem var fv_env ->
       App (var, vars @ VarMap.find var fv_env, d)
   | _ -> e
 
-let rec (f : Knormal.t -> Knormal.t) =
+let rec (f: Knormal.t -> Knormal.t) =
   lifting
     (List.fold_left
        (fun acc x -> VarMap.add x [] acc)
