@@ -18,6 +18,33 @@ and 'a fundef = {f: var; args: var list; fv: var list; body: 'a u; info: 'a}
 [@@deriving show]
 
 and 'a closure = {label: var; closure_fv: var list} [@@deriving show]
+let rec apply f e =
+  match e with
+  | Const _ as self -> self
+  | Op (op, vars, d) -> Op (op, List.map f vars, d)
+  | If (cmp, x, y, e1, e2, d) -> If (cmp, f x, f y, apply f e1, apply f e2, d)
+  | Let (var, e1, e2, d) -> Let (var, apply f e1, apply f e2, d)
+  | Var (var, d) -> Var (f var, d)
+  | Closure(fd, e) -> Closure ({fd with label = f fd.label; closure_fv = List.map f fd.closure_fv},apply f e)
+  | AppCls (var, vars, d) -> AppCls (f var, List.map f vars, d)
+  | AppDir (var, vars, d) -> AppDir (f var, List.map f vars, d)
+  | Tuple (vars, d) -> Tuple (List.map f vars, d)
+
+let rec myprint e level =
+    print_string level;
+    match e with
+    | Const (CInt x,d) -> Printf.printf "const %d\n" x
+    | Op (Projection (x,y,t),[z],d) -> Printf.printf "proj^%d_%d %s\n" x y z.name
+    | Op (_) -> print_string "op\n"
+    | If(cmp,x,y,e1,e2,d) -> 
+            (print_string "If\n"; myprint e1 ("  "^level); myprint e2 ("  "^level))
+    | Let(x,e1,e2,d) -> 
+            (Printf.printf "Let %s = \n" x.name; myprint e1 ("  "^level) ;print_string level;print_string "IN\n";myprint e2 ("  "^level))
+    | Tuple(l,d) -> (print_string "Tuple ";List.map (fun x -> Printf.printf "%s " x.name) l ;print_newline())
+    | AppDir _ | AppCls _ -> print_string "APP\n"
+    | Var(x,d) ->  (Printf.printf "var %s\n" x.name)
+    | Closure(x,e) -> (print_string "Closure\n" ; myprint e ("  "^level))
+
 
 let rec fv = function
   | Const _ -> VarSet.empty
@@ -81,7 +108,7 @@ let f =
     | App (f, args, d) -> AppCls (f, args, d)
     | Tuple (names, d) -> Tuple (names, d)
   in
-  fun x ->
+  fun x f ->
     let tmp =
       closure_conversion'
         (VarSet.of_list
@@ -91,4 +118,4 @@ let f =
               Typing.builtin_function'))
         x
     in
-    (tmp, !toplevel)
+    (f tmp, List.map (fun x -> {x with body = f x.body}) !toplevel)

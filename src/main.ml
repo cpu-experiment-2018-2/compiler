@@ -21,6 +21,10 @@ let show_virtual = ref false
 let optimize p =
   p |> Inline.f |> ConstantFold.f |> CseElimination.f |> RemoveLet.f
 
+let opt_after_closure p = 
+  p  
+
+
 let rec optimtime x p = if x = 0 then p else optimtime (x - 1) (optimize p)
 
 let lexbuf oc l =
@@ -40,15 +44,17 @@ let lexbuf oc l =
   let p = Anormal.f p in
   let _ = print_string "\nanormalized\n" in
   let _ = if !show_anormal then Knormal.myprint p 0 else () in
-  let p = LambdaLifting.f p in
-  let p = Alpha.f p in
+  (* let p = LambdaLifting.f p in *)
+  (* let p = Alpha.f p in *)
   let _ = if !show_afeter_lambda_lifting then Knormal.myprint p 0 else () in
-  let p = optimtime 50 p in
+  let p = optimtime 50 p in 
   let _ = print_string "\noptimized\n" in
   let _ = if !show_optimized then Knormal.myprint p 0 else () in
-  let p = Closure.f p in
+  let p = Closure.f p opt_after_closure in
   let _ = print_string "closure conversion succeed\n" in
-  let _ = if !show_closure then print_string (Closure.show (fst p)) else () in
+  (* let _ = if !show_closure then print_string (Closure.show (fst p)) else () in *)
+  let _ = if !show_closure then Closure.myprint (fst p) "" else () in
+
   let p, func = Virtual.h p in
   let _ = print_string "to virtual succeed\n" in
   let _ = if !show_virtual then print_string (Virtual.show_k p) else () in
