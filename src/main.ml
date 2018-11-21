@@ -53,24 +53,31 @@ let lexbuf oc l =
   let p = Closure.f p opt_after_closure in
   let _ = print_string "closure conversion succeed\n" in
   (* let _ = if !show_closure then print_string (Closure.show (fst p)) else () in *)
-  let _ = if !show_closure then Closure.myprint (fst p) "" else () in
+  (* let _ = if !show_closure then Closure.myprint (fst p) "" else () in *)
+  let p = X86virtual.f p in
+  let p = X86regAlloc.f p in
+  let p = X86simm.f p in
+  let p = X86emit.f oc p in
+  ()
 
-  let p, func = Virtual.h p in
-  let _ = print_string "to virtual succeed\n" in
-  let _ = if !show_virtual then print_string (Virtual.show_k p) else () in
-  let _ =
-    if !show_virtual then
-      List.iter
-        (fun x ->
-          print_string x.label ;
-          print_newline () ;
-          print_string (Virtual.show_k x.body) )
-        func
-    else ()
-  in
-  let p'' = Regalloc.top (p, func) in
-  Regalloc.emit p'' 3 (500 * 1000) oc
 
+
+  (* let p, func = Virtual.h p in *)
+  (* let _ = print_string "to virtual succeed\n" in *)
+  (* let _ = if !show_virtual then print_string (Virtual.show_k p) else () in *)
+  (* let _ = *)
+  (*   if !show_virtual then *)
+  (*     List.iter *)
+  (*       (fun x -> *)
+  (*         print_string x.label ; *)
+  (*         print_newline () ; *)
+  (*         print_string (Virtual.show_k x.body) ) *)
+  (*       func *)
+  (*   else () *)
+  (* in *)
+  (* let p'' = Regalloc.top (p, func) in *)
+  (* Regalloc.emit p'' 3 (500 * 1000) oc *)
+  (*  *)
 (* Asm.asm_emit p func oc *)
 
 let init = 0
