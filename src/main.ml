@@ -87,7 +87,7 @@ let _ = print_string "usage: ./compiler filename\n\toutputed to filename.s\n"
 let _ =
   let filename = Sys.argv.(1) in
   let ic = open_in filename in
-  let oname = filename ^ ".st" in
+  let oname = filename ^ ".s" in
   let oc = open_out oname in
   let _ = lexbuf oc (Lexing.from_channel ic) in
   print_string ("success\nassembly is outputed to " ^ oname)
