@@ -21,6 +21,8 @@ type debug = {pos: def} [@@deriving show]
 
 type var = {name: string; debug: debug; ty: ty} [@@deriving show]
 
+let alpha () = {name= genvar (); debug= {pos= Global}; ty= TyInt}
+
 type c = CInt of int | CBool of bool | CFloat of float | CUnit
 [@@deriving show]
 

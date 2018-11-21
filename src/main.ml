@@ -1,12 +1,14 @@
 open Virtual
 
-let x86 = ref false 
+let x86 = ref false
+
+let allow_partial = ref false
 
 let show_ast = ref false
 
 let show_typed = ref false
 
-let show_knormal = ref false
+let show_knormal = ref true
 
 let show_alpha = ref false
 
@@ -34,7 +36,7 @@ let lexbuf oc l =
   let _ = print_newline () in
   let _ = print_string "parse succeed\n" in
   let _ = if !show_ast then print_string (Syntax.show p) else () in
-  let p = Typing.f p in
+  let p = if !allow_partial then Ptyping.f p else Typing.f p in
   let _ = print_string "type check succeed\n" in
   let _ = if !show_typed then print_string (Syntax.show p) else () in
   let p = Knormal.f p in
@@ -57,36 +59,37 @@ let lexbuf oc l =
   (* let _ = if !show_closure then print_string (Closure.show (fst p)) else () in *)
   (* let _ = if !show_closure then Closure.myprint (fst p) "" else () in *)
   if !x86 then
-  let _ = print_string "Target architecture : x86-64\n" in
-  let p = X86virtual.f p in
-  let p = X86regAlloc.f p in
-  let p = X86simm.f p in
-  let p = X86emit.f oc p in
-  ()
-  else(
-  let _ = print_string "Target architecture : elmo\n" in
-  let p, func = Virtual.h p in
-  let _ = print_string "to virtual succeed\n" in
-  let _ = if !show_virtual then print_string (Virtual.show_k p) else () in
-  let _ =
-    if !show_virtual then
-      List.iter
-        (fun x ->
-          print_string x.label ;
-          print_newline () ;
-          print_string (Virtual.show_k x.body) )
-        func
-    else ()
-  in
-  let p'' = Regalloc.top (p, func) in
-  Regalloc.emit p'' 3 (500 * 1000) oc
-  )
+    let _ = print_string "Target architecture : x86-64\n" in
+    let p = X86virtual.f p in
+    let p = X86regAlloc.f p in
+    let p = X86simm.f p in
+    let p = X86emit.f oc p in
+    ()
+  else
+    let _ = print_string "Target architecture : elmo\n" in
+    let p, func = Virtual.h p in
+    let _ = print_string "to virtual succeed\n" in
+    let _ = if !show_virtual then print_string (Virtual.show_k p) else () in
+    let _ =
+      if !show_virtual then
+        List.iter
+          (fun x ->
+            print_string x.label ;
+            print_newline () ;
+            print_string (Virtual.show_k x.body) )
+          func
+      else ()
+    in
+    let p'' = Regalloc.top (p, func) in
+    Regalloc.emit p'' 3 (500 * 1000) oc
 
 let init = 0
 
 let _ = print_string "usage: ./compiler filename\n\toutputed to filename.s\n"
-let analyze_cmd () = 
-    x86 := Array.exists(fun x -> x = "-x86" ) Sys.argv
+
+let analyze_cmd () =
+  x86 := Array.exists (fun x -> x = "-x86") Sys.argv ;
+  allow_partial := Array.exists (fun x -> x = "-allow-partial") Sys.argv
 
 let _ =
   let _ = analyze_cmd () in

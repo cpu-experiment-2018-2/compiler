@@ -15,8 +15,8 @@
 #define ALIGNSTACK3
 #endif
 .text
-.globl min_caml_print_newline
-min_caml_print_newline:
+.globl print_newline
+print_newline:
 	pushl	%ebp
 	movl	%esp, %ebp
 	ALIGNSTACK1
@@ -25,6 +25,18 @@ min_caml_print_newline:
 	movl	%ebp, %esp
 	popl	%ebp
 	ret
+.globl print_int
+print_int:
+	pushl	%ebp
+	movl	%esp, %ebp
+	ALIGNSTACK2
+	pushl	%eax
+	pushl	$format_int
+	call	U(printf)
+	movl	%ebp, %esp
+	popl	%ebp
+	ret
+
 .globl min_caml_print_int
 min_caml_print_int:
 	pushl	%ebp
