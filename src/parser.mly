@@ -29,7 +29,9 @@ let getdebug () =
 %token <int> INT
 %token <float> FLOAT
 %token NOT
+%token FUN
 %token EOF
+%token RIGHT_ARROW
 %token MINUS
 %token PLUS
 %token MINUS_DOT
@@ -143,10 +145,10 @@ exp:
     { Op(Primitive(FMul), [$1; $3],getdebug())}
 | exp SLASH_DOT exp
     { Op(Primitive(FDiv), [$1; $3],getdebug())}
-
 | LET id EQUAL exp IN exp
     %prec prec_let
     { Let($2, $4, $6,getdebug())}
+| anonymousf {$1}
 | LET REC fundef IN exp
     %prec prec_let
     { 
@@ -189,6 +191,13 @@ fundef:
 | id formal_args EQUAL exp
     { { f = $1; args = $2 ; body =  $4; info = getdebug() } }
 
+anonymousf:
+| FUN formal_args RIGHT_ARROW exp
+    { 
+        let name = alpha() in 
+        LetRec({f = name; args = $2; body = $4; info = getdebug() }, Var(name,getdebug()), getdebug())
+    }
+
 formal_args:
 | id formal_args
     { $1 :: $2 }
@@ -221,4 +230,4 @@ pat:
 | pat COMMA id 
     { $1 @ [$3] }
 | id COMMA id 
-    { [$1; $3] }
+    {[$1; $3] }

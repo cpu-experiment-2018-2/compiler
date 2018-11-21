@@ -25,6 +25,11 @@ rule token = parse
     { BOOL(true) }
 | "false"
     { BOOL(false) }
+| "fun"
+    { FUN }
+| "->"
+    { RIGHT_ARROW }
+
 | "not"
     { NOT }
 | digit+ 
