@@ -34,6 +34,7 @@ let getdebug () =
 %token RIGHT_ARROW
 %token MINUS
 %token PLUS
+%token PLUS_ADHOC
 %token MINUS_DOT
 %token PLUS_DOT
 %token AST_DOT
@@ -67,7 +68,7 @@ let getdebug () =
 %nonassoc prec_tuple
 %left COMMA
 %left EQUAL LESS_GREATER LESS GREATER LESS_EQUAL GREATER_EQUAL
-%left PLUS MINUS PLUS_DOT MINUS_DOT
+%left PLUS MINUS PLUS_DOT MINUS_DOT PLUS_ADHOC
 %left AST SLASH AST_DOT SLASH_DOT
 %right prec_unary_minus
 %left prec_app
@@ -114,6 +115,8 @@ exp:
     { Op(Primitive(Div), [$1; $3],getdebug())}
 | exp PLUS exp 
     { Op(Primitive(Add), [$1; $3],getdebug())}
+| exp PLUS_ADHOC exp 
+    { Op(Adhoc(AAdd), [$1; $3],getdebug())}
 | exp MINUS exp
     { Op(Primitive(Sub), [$1; $3],getdebug())}
 | exp EQUAL exp

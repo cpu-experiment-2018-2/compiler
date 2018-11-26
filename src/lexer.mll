@@ -40,6 +40,8 @@ rule token = parse
     { MINUS }
 | '+' 
     { PLUS }
+| "+!" 
+    { PLUS_ADHOC }
 | '*'
     { AST }
 | "-."

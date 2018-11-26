@@ -149,6 +149,13 @@ let rec knormalize (e: Syntax.t) =
    |Op (Primitive LE, l, d)
    |Op (Primitive LT, l, d) ->
       knormalize (If (e, Const (CInt 1, d), Const (CInt 0, d), d))
+  | Op(Adhoc AAdd , [x;y],d) -> 
+          (
+          let _,tx = knormalize x in
+          match tx with
+          | TyFloat -> knormalize(Op(Primitive FAdd ,[x;y], d))
+          | TyInt -> knormalize(Op(Primitive Add ,[x;y], d))
+          )
   | Op (Primitive x, l, d) ->
       let ty =
         match x with FAdd | FMul | FSub | FDiv | FNeg -> TyFloat | _ -> TyInt

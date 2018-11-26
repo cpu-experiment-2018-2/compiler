@@ -44,12 +44,16 @@ type primitive =
   | FNeg
   | Not
 [@@deriving show, ord]
+type adhoc = 
+  | AAdd
+[@@deriving show, ord]
 
 type op =
   | Primitive of primitive
   | ArrayPut of Type.t
   | ArrayGet of Type.t
   | Projection of int * int * Type.t
+  | Adhoc of adhoc 
 [@@deriving show]
 
 type primitive_info = {args: ty list; ret: ty} [@@deriving show]

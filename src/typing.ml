@@ -187,6 +187,10 @@ let rec gather_eq' type_env e =
       , get_eq t1 (TyArray alpha) d
         :: get_eq t2 TyInt d :: get_eq t3 alpha d
         :: (c1 @ c2 @ c3) )
+  | Op (Adhoc AAdd, [e1;e2], d) ->
+      let t1, c1 = gather_eq e1 in
+      let t2, c2 = gather_eq e2 in
+      (t2, get_eq t1 t2 d :: (c1 @ c2))
   | Op (Primitive x, l, d) ->
       let info = get_o_info x in
       let res = List.map gather_eq l in
