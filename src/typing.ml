@@ -154,15 +154,15 @@ let subst_var sigma v varenv =
       let ty = instanciate_builtin v.name varenv in
       {v with ty}
 
-let rec gather_eq' type_env e =
-  let gather_eq = gather_eq' type_env in
+let rec collec_eq' type_env e =
+  let collec_eq = collec_eq' type_env in
   match e with
   | Const (CInt _, d) -> (TyInt, empty)
   | Const (CFloat _, d) -> (TyFloat, empty)
   | Const (CUnit, d) -> (TyUnit, empty)
   | Const (CBool _, d) -> (TyBool, empty)
   | Op (Projection (idx, all, ty), [tup], d) -> (
-      let t1, c1 = gather_eq tup in
+      let t1, c1 = collec_eq tup in
       match t1 with
       | TyVar v ->
           let rec f x =
@@ -176,24 +176,24 @@ let rec gather_eq' type_env e =
           (beta, get_eq ty beta d :: c1)
       | _ -> raise (TypingError ("type error tuple at " ^ show_debug d)) )
   | Op (ArrayGet alpha, [arr; idx], d) ->
-      let t1, c1 = gather_eq arr in
-      let t2, c2 = gather_eq idx in
+      let t1, c1 = collec_eq arr in
+      let t2, c2 = collec_eq idx in
       (alpha, get_eq t1 (TyArray alpha) d :: get_eq t2 TyInt d :: (c1 @ c2))
   | Op (ArrayPut alpha, [arr; idx; elem], d) ->
-      let t1, c1 = gather_eq arr in
-      let t2, c2 = gather_eq idx in
-      let t3, c3 = gather_eq elem in
+      let t1, c1 = collec_eq arr in
+      let t2, c2 = collec_eq idx in
+      let t3, c3 = collec_eq elem in
       ( TyUnit
       , get_eq t1 (TyArray alpha) d
         :: get_eq t2 TyInt d :: get_eq t3 alpha d
         :: (c1 @ c2 @ c3) )
   | Op (Adhoc AAdd, [e1;e2], d) ->
-      let t1, c1 = gather_eq e1 in
-      let t2, c2 = gather_eq e2 in
+      let t1, c1 = collec_eq e1 in
+      let t2, c2 = collec_eq e2 in
       (t2, get_eq t1 t2 d :: (c1 @ c2))
   | Op (Primitive x, l, d) ->
       let info = get_o_info x in
-      let res = List.map gather_eq l in
+      let res = List.map collec_eq l in
       let c = List.concat (List.map snd res) in
       let ts = List.map fst res in
       let new_c =
@@ -201,9 +201,9 @@ let rec gather_eq' type_env e =
       in
       (info.ret, new_c @ c)
   | If (e1, e2, e3, d) ->
-      let t1, c1 = gather_eq e1 in
-      let t2, c2 = gather_eq e2 in
-      let t3, c3 = gather_eq e3 in
+      let t1, c1 = collec_eq e1 in
+      let t2, c2 = collec_eq e2 in
+      let t3, c3 = collec_eq e3 in
       (t2, get_eq TyBool t1 d :: get_eq t2 t3 d :: List.concat [c1; c2; c3])
   | LetRec (fundef, e1, d) ->
       let alpha = fundef.f.ty in
@@ -211,16 +211,16 @@ let rec gather_eq' type_env e =
       let beta = TyVar (Type.genvar ()) in
       let ty = TyFun (args_var, beta) in
       let t1, c1 =
-        gather_eq'
+        collec_eq'
           ( List.map (fun x -> (x.name, x.ty)) fundef.args
           @ [(fundef.f.name, ty)] @ type_env )
           fundef.body
       in
-      let t2, c2 = gather_eq' ((fundef.f.name, ty) :: type_env) e1 in
+      let t2, c2 = collec_eq' ((fundef.f.name, ty) :: type_env) e1 in
       (t2, get_eq ty alpha d :: get_eq t1 beta d :: (c1 @ c2))
       (* (t2, get_eq ty alpha d :: (c1 @ c2)) *)
   | Let (var, e1, e2, d) ->
-      let t1, c1 = gather_eq e1 in
+      let t1, c1 = collec_eq e1 in
       (*
             let多相はあとからやる
         *)
@@ -228,7 +228,7 @@ let rec gather_eq' type_env e =
       (*
          あとのことを考えて
         *)
-      let t2, c2 = gather_eq' env e2 in
+      let t2, c2 = collec_eq' env e2 in
       (t2, (get_eq var.ty t1 d :: c1) @ c2)
   | Var (name, d) -> (
     match
@@ -243,13 +243,13 @@ let rec gather_eq' type_env e =
         let ty = instanciate_builtin name.name [] in
         (ty, [get_eq ty name.ty d]) )
   | Tuple (ts, d) ->
-      let res = List.map gather_eq ts in
+      let res = List.map collec_eq ts in
       let types = List.map fst res in
       let constraints = List.concat (List.map snd res) in
       (TyTuple types, constraints)
   | App (e1, e2, d) ->
-      let t1, c1 = gather_eq e1 in
-      let res = List.map gather_eq e2 in
+      let t1, c1 = collec_eq e1 in
+      let res = List.map collec_eq e2 in
       let ts = List.map fst res in
       let cs = List.concat (List.map snd res) in
       let alpha = TyVar (Type.genvar ()) in
@@ -284,7 +284,7 @@ let rec subst_ast sigma varenv s =
   | Tuple (ts, d) -> Tuple (List.map f ts, d)
 
 let f e =
-  let ty, equations = gather_eq' [] e in
+  let ty, equations = collec_eq' [] e in
   let _ = print_string "get_equations\n" in
   let sigma = ty_unify equations in
   let _ = print_string "get_subst\n" in

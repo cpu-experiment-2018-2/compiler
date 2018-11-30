@@ -200,14 +200,14 @@ min_caml_floor:
 	movl	%ebp, %esp
 	popl	%ebp
 	ret
-.globl min_caml_int_of_float
-min_caml_int_of_float:
+.globl int_of_float
+int_of_float:
 .globl min_caml_truncate
 min_caml_truncate:
 	cvttsd2si	%xmm0, %eax
 	ret
-.globl min_caml_float_of_int
-min_caml_float_of_int:
+.globl float_of_int
+float_of_int:
 	cvtsi2sd	%eax, %xmm0
 	ret
 .globl min_caml_cos
