@@ -18,12 +18,13 @@ and 'a fundef = {f: var; args: var list; fv: var list; body: 'a u; info: 'a}
 [@@deriving show]
 
 and 'a closure = {label: var; closure_fv: var list} [@@deriving show]
+
 let rec apply f e =
   match e with
   | Const _ as self -> self
   | Op (op, vars, d) -> Op (op, List.map f vars, d)
   | If (cmp, x, y, e1, e2, d) -> If (cmp, f x, f y, apply f e1, apply f e2, d)
-  | Let (var, e1, e2, d) -> Let (var, apply f e1, apply f e2, d)
+  | Let (var, e1, e2, d) -> Let (f var, apply f e1, apply f e2, d)
   | Var (var, d) -> Var (f var, d)
   | Closure (fd, e) ->
       Closure
@@ -75,13 +76,13 @@ let rec fv = function
 
 type t = debug u [@@deriving show]
 
-let (toplevel: debug fundef list ref) = ref []
+let (toplevel : debug fundef list ref) = ref []
 
 let add_toplevel fundef = toplevel := fundef :: !toplevel
 
 let f =
   let _ = toplevel := [] in
-  let rec closure_conversion' known (e: Knormal.t) =
+  let rec closure_conversion' known (e : Knormal.t) =
     let closure_conversion x = closure_conversion' known x in
     match e with
     | Const (x, d) -> Const (x, d)
@@ -132,4 +133,4 @@ let f =
               Typing.builtin_function'))
         x
     in
-    (f tmp, List.map (fun x -> {x with body = f x.body}) !toplevel)
+    (f tmp, List.map (fun x -> {x with body= f x.body}) !toplevel)

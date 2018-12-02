@@ -4,7 +4,8 @@ open Knormal
 let threshold = 10
 
 let rec size = function
-  | If (_, _, _, e1, e2, _) | Let (_, e1, e2, _) | LetRec ({body= e1}, e2, _) ->
+  | If (_, _, _, e1, e2, _) | Let (_, e1, e2, _) | LetRec ({body= e1}, e2, _)
+    ->
       1 + size e1 + size e2
   | _ -> 1
 

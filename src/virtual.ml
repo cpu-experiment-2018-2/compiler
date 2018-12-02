@@ -83,7 +83,7 @@ let rec concat var e1 e2 =
 
 let to_g = ap
 
-let rec closure_to_virtual' (e: Closure.t) =
+let rec closure_to_virtual' (e : Closure.t) =
   let closure_to_virtual x = closure_to_virtual' x in
   match e with
   | Const (CUnit, d) -> Ans (Nop d)
@@ -178,8 +178,7 @@ let rec closure_to_virtual' (e: Closure.t) =
                   (Ans (Var (y, d)), List.length names - 1))) )
   | _ -> failwith (Closure.show e)
 
-
-let rec function_to_virtual2 (fundef: debug Closure.fundef) =
+let rec function_to_virtual2 (fundef : debug Closure.fundef) =
   let body = closure_to_virtual' fundef.body in
   { label= fundef.f.name
   ; args= List.map conv fundef.args

@@ -119,7 +119,7 @@ let insert_let (e, ty) k =
       let e', t = k alpha in
       (Let (alpha, e, e', get_debug e), t)
 
-let rec list_to_let (es: (t * ty) list) knormalize =
+let rec list_to_let (es : (t * ty) list) knormalize =
   let res =
     List.map
       (fun (e, ty) ->
@@ -137,25 +137,23 @@ let rec list_to_let (es: (t * ty) list) knormalize =
       res
   , List.map fst res )
 
-let rec knormalize (e: Syntax.t) =
+let rec knormalize (e : Syntax.t) =
   match e with
   | Const (CInt x, d) -> (Const (CInt x, d), TyInt)
   | Const (CFloat x, d) -> (Const (CFloat x, d), TyFloat)
-  | Const (CBool x, d) -> (Const (CInt (if x then 1 else 0), d), TyInt)
-  | Const (CUnit, d) -> (Const (CInt 0, d), TyInt)
+  | Const (CBool x, d) -> (Const (CBool x, d), TyBool)
+  | Const (CUnit, d) -> (Const (CUnit, d), TyUnit)
   | Op (Primitive EQ, l, d)
    |Op (Primitive GE, l, d)
    |Op (Primitive GT, l, d)
    |Op (Primitive LE, l, d)
    |Op (Primitive LT, l, d) ->
       knormalize (If (e, Const (CInt 1, d), Const (CInt 0, d), d))
-  | Op(Adhoc AAdd , [x;y],d) -> 
-          (
-          let _,tx = knormalize x in
-          match tx with
-          | TyFloat -> knormalize(Op(Primitive FAdd ,[x;y], d))
-          | TyInt -> knormalize(Op(Primitive Add ,[x;y], d))
-          )
+  | Op (Adhoc AAdd, [x; y], d) -> (
+      let _, tx = knormalize x in
+      match tx with
+      | TyFloat -> knormalize (Op (Primitive FAdd, [x; y], d))
+      | TyInt -> knormalize (Op (Primitive Add, [x; y], d)) )
   | Op (Primitive x, l, d) ->
       let ty =
         match x with FAdd | FMul | FSub | FDiv | FNeg -> TyFloat | _ -> TyInt

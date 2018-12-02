@@ -2,13 +2,17 @@ open Virtual
 
 let x86 = ref false
 
+let fname = ref ""
+
+let llvm_ir = ref true
+
 let allow_partial = ref false
 
 let show_ast = ref false
 
 let show_typed = ref false
 
-let show_knormal = ref true
+let show_knormal = ref false
 
 let show_alpha = ref false
 
@@ -25,9 +29,7 @@ let show_virtual = ref false
 let optimize p =
   p |> Inline.f |> ConstantFold.f |> CseElimination.f |> RemoveLet.f
 
-let opt_after_closure p = 
-  p  
-
+let opt_after_closure p = p
 
 let rec optimtime x p = if x = 0 then p else optimtime (x - 1) (optimize p)
 
@@ -51,7 +53,7 @@ let lexbuf oc l =
   (* let p = LambdaLifting.f p in *)
   (* let p = Alpha.f p in *)
   let _ = if !show_afeter_lambda_lifting then Knormal.myprint p 0 else () in
-  let p = optimtime 50 p in 
+  let p = optimtime 0 p in
   let _ = print_string "\noptimized\n" in
   let _ = if !show_optimized then Knormal.myprint p 0 else () in
   let p = Closure.f p opt_after_closure in
@@ -65,6 +67,7 @@ let lexbuf oc l =
     let p = X86simm.f p in
     let p = X86emit.f oc p in
     ()
+  else if !llvm_ir then LlvmCodegen.f !fname p
   else
     let _ = print_string "Target architecture : elmo\n" in
     let p, func = Virtual.h p in
@@ -89,13 +92,15 @@ let _ = print_string "usage: ./compiler filename\n\toutputed to filename.s\n"
 
 let analyze_cmd () =
   x86 := Array.exists (fun x -> x = "-x86") Sys.argv ;
-  allow_partial := Array.exists (fun x -> x = "-allow-partial") Sys.argv
+  allow_partial := Array.exists (fun x -> x = "-allow-partial") Sys.argv ;
+  llvm_ir := Array.exists (fun x -> x = "-llvm-ir") Sys.argv
 
 let _ =
   let _ = analyze_cmd () in
   let filename = Sys.argv.(1) in
   let ic = open_in filename in
-  let oname = filename ^ ".s" in
+  let oname = if not !llvm_ir then filename ^ ".s" else filename ^ ".ll" in
+  let _ = fname := oname in
   let oc = open_out oname in
   let _ = lexbuf oc (Lexing.from_channel ic) in
   print_string ("success\nassembly is outputed to " ^ oname)

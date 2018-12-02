@@ -68,14 +68,14 @@ let proepi d localsize =
 
 let move v1 v2 d = Opi (Add, v1, v2, 0, d)
 
-let rec record (e: string u list) =
+let rec record (e : string u list) =
   let f acc s =
     match s with SetLabel (label, Other, l) -> label :: acc | _ -> acc
   in
   let ans = List.fold_left f [] e in
   fun x -> if List.exists (fun y -> x = y) ans then "@@" ^ x else x
 
-let rec emit_sugar oc ch (e: string u) =
+let rec emit_sugar oc ch (e : string u) =
   match e with
   | Nop d -> ()
   (*  Printf.fprintf oc "\tnop (* %s *)" (Syntax.pos_to_str d.pos) *)

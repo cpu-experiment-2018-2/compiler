@@ -90,7 +90,7 @@ let rec lifting fv_env candir e =
       App (var, vars @ VarMap.find var fv_env, d)
   | _ -> e
 
-let rec (f: Knormal.t -> Knormal.t) =
+let rec (f : Knormal.t -> Knormal.t) =
   lifting
     (List.fold_left
        (fun acc x -> VarMap.add x [] acc)

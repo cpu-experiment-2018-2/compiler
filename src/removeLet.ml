@@ -34,4 +34,4 @@ M[y/x]にする
         , d )
   | _ -> Knormal.apply (change env) e
 
-let (f: Knormal.t -> Knormal.t) = remove_alias_let []
+let (f : Knormal.t -> Knormal.t) = remove_alias_let []

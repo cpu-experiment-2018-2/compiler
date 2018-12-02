@@ -35,4 +35,4 @@ let rec cseEliminate map e =
 
 (* | LetTuple (vars, var, e1, d) -> LetTuple (vars, var, cseEliminate map e1, d) *)
 
-let (f: Knormal.t -> Knormal.t) = cseEliminate M.empty
+let (f : Knormal.t -> Knormal.t) = cseEliminate M.empty

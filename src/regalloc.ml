@@ -101,7 +101,7 @@ let rec liveness_after_call e =
           let x3, l3, f3 = liveness_after_call v in
           (x3, VarSet2.union l3 (VarSet2.union l1 l2), f1 || f2 || f3)
     | _ -> liveness_after_call v )
-  | Ans u ->
+  | Ans u -> (
     match u with
     | CallDir (_, vars, _) -> g vars None
     | CallCls (var, vars, _) -> g (vars @ [var]) None
@@ -110,7 +110,7 @@ let rec liveness_after_call e =
         let x2, l2, f2 = liveness_after_call e2 in
         if f1 || f2 then (x1, VarSet2.union l1 l2, true)
         else (x1, VarSet2.union l1 l2, false)
-    | _ -> ([], VarSet2.empty, false)
+    | _ -> ([], VarSet2.empty, false) )
 
 let update idx u l = (idx, Some u) :: List.filter (fun (x, y) -> x <> idx) l
 
@@ -119,7 +119,7 @@ let forget idx l = (idx, None) :: List.filter (fun (x, y) -> x <> idx) l
 let getreg_by_val_opt var l =
   match var with
   | Int x -> Some x
-  | _ ->
+  | _ -> (
     match
       List.find_opt
         (fun (x, y) ->
@@ -127,7 +127,7 @@ let getreg_by_val_opt var l =
         l
     with
     | Some (idx, var) -> Some idx
-    | None -> None
+    | None -> None )
 
 let getreg_by_val var l =
   match var with
@@ -140,6 +140,7 @@ let getreg_by_val var l =
               (fun (x, y) ->
                 match y with Some y -> compare_g y var = 0 | None -> false )
               l))
+
 let is_on_reg l var =
   match var with
   | Int x -> true
@@ -266,10 +267,10 @@ let rec alloc var u cont (f, regmap, stackmap) last =
   let tar =
     match var with
     | Int x -> x
-    | _ ->
+    | _ -> (
       match last with
       | Some id -> id
-      | _ ->
+      | _ -> (
         match
           List.find_opt (fun (y, x) -> compare_g x var = 0) nextfun_arg
         with
@@ -288,7 +289,7 @@ let rec alloc var u cont (f, regmap, stackmap) last =
                   failwith "HOGE"
             in
             (* 死んでるもののうち一番インデックスが大きい物 *)
-            idx
+            idx ) )
   in
   let cur = (f, regmap, stackmap) in
   let u, (f, regmap, stackmap) =
@@ -461,7 +462,7 @@ open Asm
 
 type hoge = (debug, int) Virtual.u [@@deriving show]
 
-let rec conv (order: hoge) var =
+let rec conv (order : hoge) var =
   match order with
   | Nop x -> [Nop x]
   | Li (x, d) -> [Li (var, x, d)]

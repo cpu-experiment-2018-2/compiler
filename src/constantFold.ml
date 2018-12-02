@@ -37,4 +37,4 @@ let rec constantFold map e =
       | _ -> Let (var, e, g e2, d) )
   | LetRec (fd, e, d) -> LetRec ({fd with body= g fd.body}, g e, d)
 
-let (f: Knormal.t -> Knormal.t) = constantFold []
+let (f : Knormal.t -> Knormal.t) = constantFold []
