@@ -24,12 +24,14 @@ type name = Syntax.var [@@deriving show]
 type cmpty = F | I [@@deriving show]
 
 type op = Syntax.op [@@deriving show]
-
+let alpha ty = 
+    let a = Syntax.alpha() in
+    { a with ty = ty }
 type u =
   | C of Syntax.c
   | Var of name
   | Op of op * name list
-  | Load of name * int
+  | Load of name * name * int
   | Store of name * name * int
   | If of Knormal.cmp * name * name * v * v * cmpty
   | Call of name * name list
@@ -47,7 +49,8 @@ let rec closure_to_ir = function
   | Const (CFloat x, d) -> Ans (C (CFloat x))
   | Const (CBool x, d) -> Ans (C (CBool x))
   | Const (CUnit, d) -> Ans (C CUnit)
-  (*| Op(ArrayPut _, [x;y;z], d) -> let a = Sytax.genvar() in Let(a, Op(Primitive Add, [x;y]), Ans(Store(z,a,0)))*)
+  | Op(ArrayGet _, [x;y], d) -> let a = alpha TyInt in Let(a, Op(Primitive Add, [x;y]), Ans(Store(z,a,0)))
+  | Op(ArrayPut _, [x;y;z], d) -> let a = alpha TyInt in Let(a, Op(Primitive Add, [x;y]), Ans(Store(z,a,0)))
   | Op (op, l, d) -> Ans (Op (op, l))
   | If (cmp, x, y, e1, e2, d) -> (
     match x.ty with
