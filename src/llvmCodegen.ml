@@ -19,11 +19,11 @@ let i1_type = i1_type context
 
 let void_type = void_type context
 
-type name = Syntax.var
+type name = Syntax.var [@@deriving show]
 
 type cmpty = F | I [@@deriving show]
 
-type op = Syntax.op
+type op = Syntax.op [@@deriving show]
 
 type u =
   | C of Syntax.c
@@ -33,6 +33,7 @@ type u =
   | Store of name * name * int
   | If of Knormal.cmp * name * name * v * v * cmpty
   | Call of name * name list
+[@@deriving show]
 
 and v = Ans of u | Let of name * u * v
 
@@ -73,43 +74,27 @@ let const_to_llvalue dest = function
   | CUnit -> failwith "void has not value"
 
 let find x = Hashtbl.find env x.name
-let gencond x y cmp ty = 
-    let lhs = find x in
-    let rhs = find y in
 
-    
-let to_llvalue dest x =
-  let unary f x = f (Hashtbl.find env x.name) dest builder in
-  let binary f x y =
-    f (Hashtbl.find env x.name) (Hashtbl.find env y.name) dest builder
-  in
-  match x with
-  | C y -> const_to_llvalue dest y
-  | Op (Primitive Add, [x; y]) -> binary build_add x y
-  | Op (Primitive Sub, [x; y]) -> binary build_sub x y
-  | Op (Primitive FAdd, [x; y]) -> binary build_fadd x y
-  | Op (Primitive FDiv, [x; y]) -> binary build_fdiv x y
-  | Op (Primitive FMul, [x; y]) -> binary build_fmul x y
-  | Op (Primitive FSub, [x; y]) -> binary build_fsub x y
-  | Op (Primitive Neg, [x]) -> unary build_neg x
-  | Op (Primitive FNeg, [x]) -> unary build_fneg x
-  | Call (f, args) ->
-      let Some(f) = lookup_function f.name the_module in
-      build_call f (Array.of_list (List.map find args)) dest builder
-  | If(cmp,x,y,e1,e2,ty) -> 
-      (* let xbb = append_block context (dest^".true")  in *)
-      (* let xvalue = codegen' e1 Value in *)
-      (* let ybb = append_block context (dest^".false")  in *)
-      (* let yvalue = codegen' e2 Value in *)
-      binary build_fdiv x y
+let cmp_to_Icmp = function
+  | Knormal.LE -> Icmp.Sle
+  | Knormal.LT -> Icmp.Slt
+  | Knormal.EQ -> Icmp.Eq
 
+let cmp_to_Fcmp = function
+  | Knormal.LE -> Fcmp.Ole
+  | Knormal.LT -> Fcmp.Olt
+  | Knormal.EQ -> Fcmp.Oeq
 
-let rec codegen dest x =
-  let v = to_llvalue dest x in
-  v
+let gencond x y cmp ty =
+  let lhs = find x in
+  let rhs = find y in
+  let condi = cmp_to_Icmp cmp in
+  let condf = cmp_to_Fcmp cmp in
+  match ty with
+  | F -> build_fcmp condf lhs rhs "" builder
+  | I -> build_icmp condi lhs rhs "" builder
 
-type ret = 
-    Ret | Value
+type ret = Ret | Value
 
 let rec codegen_ret x =
   match x with
@@ -119,20 +104,73 @@ let rec codegen_ret x =
       let a = Syntax.alpha () in
       codegen' (Let (a, x, Ans (Var a))) Ret
 
+and codegen dest x =
+  let v = to_llvalue dest x in
+  v
+
 and codegen' x ret_type =
   match x with
-  | Ans u -> 
-          (
-          match ret_type with 
-          | Ret -> codegen_ret u 
-          | Value -> 
-      let a = Syntax.genvar() in
-      codegen a u 
-          )
+  | Ans u -> (
+    match ret_type with
+    | Ret -> codegen_ret u
+    | Value ->
+        let a = Syntax.genvar () in
+        codegen a u )
   | Let (n, e1, e2) ->
-      let v = codegen n.name e1  in
+      let v = codegen n.name e1 in
       let _ = Hashtbl.add env n.name v in
       codegen' e2 ret_type
+
+and to_llvalue dest x =
+  let unary f x = f (Hashtbl.find env x.name) dest builder in
+  let binary f x y =
+    f (Hashtbl.find env x.name) (Hashtbl.find env y.name) dest builder
+  in
+  match x with
+  | C y -> const_to_llvalue dest y
+  | Var x -> find x
+  | Op (Primitive Add, [x; y]) -> binary build_add x y
+  | Op (Primitive Sub, [x; y]) -> binary build_sub x y
+  | Op (Primitive FAdd, [x; y]) -> binary build_fadd x y
+  | Op (Primitive FDiv, [x; y]) -> binary build_fdiv x y
+  | Op (Primitive FMul, [x; y]) -> binary build_fmul x y
+  | Op (Primitive FSub, [x; y]) -> binary build_fsub x y
+  | Op (Primitive Neg, [x]) -> unary build_neg x
+  | Op (Primitive FNeg, [x]) -> unary build_fneg x
+  | Call (f, args) ->
+      let _ = Printf.printf "call %s\n" f.name in
+      let (TyFun (_, ret)) = f.ty in
+      let (Some f) = lookup_function f.name the_module in
+      build_call f (Array.of_list (List.map find args)) dest builder
+  | If (cmp, x, y, e1, e2, ty) ->
+      let cond_val = gencond x y cmp ty in
+      let start_bb = insertion_block builder in
+      let the_function = block_parent start_bb in
+      let then_bb = append_block context "then" the_function in
+      let _ = position_at_end then_bb builder in
+      let then_val = codegen' e1 Value in
+      let new_then_bb = insertion_block builder in
+      let else_bb = append_block context "else" the_function in
+      let _ = position_at_end else_bb builder in
+      let else_val = codegen' e2 Value in
+      let new_else_bb = insertion_block builder in
+      let merge_bb = append_block context "ifcont" the_function in
+      let _ = position_at_end merge_bb builder in
+      let incoming = [(then_val, new_then_bb); (else_val, new_else_bb)] in
+      let phi = build_phi incoming "iftmp" builder in
+      (* Return to the start block to add the conditional branch. *)
+      position_at_end start_bb builder ;
+      ignore (build_cond_br cond_val then_bb else_bb builder) ;
+      (* Set a unconditional branch at the end of the 'then' block and the
+       * 'else' block to the 'merge' block. *)
+      position_at_end new_then_bb builder ;
+      ignore (build_br merge_bb builder) ;
+      position_at_end new_else_bb builder ;
+      ignore (build_br merge_bb builder) ;
+      (* Finally, set the builder to the end of the merge block. *)
+      position_at_end merge_bb builder ;
+      phi
+  | _ -> failwith (show_u x)
 
 let type_to_lltype = function
   | TyUnit -> void_type
@@ -141,13 +179,23 @@ let type_to_lltype = function
   | TyFloat -> float_type
   | TyTuple _ | TyArray _ -> pointer_type i32_type
 
-let fundef_to_ir fd =
+let fundef_proto fd =
   let (TyFun (args, ret)) = fd.f.ty in
   let body = closure_to_ir fd.body in
   let args = Array.of_list (List.map type_to_lltype args) in
   let ret = type_to_lltype ret in
   let ft = function_type ret args in
   let f = declare_function fd.f.name ft the_module in
+  ()
+
+let fundef_to_ir fd =
+  (* let (TyFun (args, ret)) = fd.f.ty in *)
+  (* let args = Array.of_list (List.map type_to_lltype args) in *)
+  (* let ret = type_to_lltype ret in *)
+  (* let ft = function_type ret args in *)
+  (* let f = declare_function fd.f.name ft the_module in *)
+  let (Some f) = lookup_function fd.f.name the_module in
+  let body = closure_to_ir fd.body in
   let _ =
     Array.iter2
       (fun a n -> set_value_name n a ; Hashtbl.add env n a)
@@ -170,6 +218,7 @@ let main_to_ir main =
   ()
 
 let f name (main, functions) =
+  let _ = List.iter fundef_proto functions in
   let _ = List.iter fundef_to_ir functions in
   let _ = main_to_ir main in
   let _ = print_module name the_module in
