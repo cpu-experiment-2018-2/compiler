@@ -73,7 +73,11 @@ let const_to_llvalue dest = function
   | CUnit -> failwith "void has not value"
 
 let find x = Hashtbl.find env x.name
+let gencond x y cmp ty = 
+    let lhs = find x in
+    let rhs = find y in
 
+    
 let to_llvalue dest x =
   let unary f x = f (Hashtbl.find env x.name) dest builder in
   let binary f x y =
@@ -90,12 +94,22 @@ let to_llvalue dest x =
   | Op (Primitive Neg, [x]) -> unary build_neg x
   | Op (Primitive FNeg, [x]) -> unary build_fneg x
   | Call (f, args) ->
-      print_string f.name ;
-      build_call (find f) (Array.of_list (List.map find args)) dest builder
+      let Some(f) = lookup_function f.name the_module in
+      build_call f (Array.of_list (List.map find args)) dest builder
+  | If(cmp,x,y,e1,e2,ty) -> 
+      (* let xbb = append_block context (dest^".true")  in *)
+      (* let xvalue = codegen' e1 Value in *)
+      (* let ybb = append_block context (dest^".false")  in *)
+      (* let yvalue = codegen' e2 Value in *)
+      binary build_fdiv x y
+
 
 let rec codegen dest x =
   let v = to_llvalue dest x in
   v
+
+type ret = 
+    Ret | Value
 
 let rec codegen_ret x =
   match x with
@@ -103,15 +117,22 @@ let rec codegen_ret x =
   | Var x -> build_ret (Hashtbl.find env x.name) builder
   | _ ->
       let a = Syntax.alpha () in
-      codegen' (Let (a, x, Ans (Var a)))
+      codegen' (Let (a, x, Ans (Var a))) Ret
 
-and codegen' x =
+and codegen' x ret_type =
   match x with
-  | Ans u -> codegen_ret u
+  | Ans u -> 
+          (
+          match ret_type with 
+          | Ret -> codegen_ret u 
+          | Value -> 
+      let a = Syntax.genvar() in
+      codegen a u 
+          )
   | Let (n, e1, e2) ->
-      let v = codegen n.name e1 in
+      let v = codegen n.name e1  in
       let _ = Hashtbl.add env n.name v in
-      codegen' e2
+      codegen' e2 ret_type
 
 let type_to_lltype = function
   | TyUnit -> void_type
@@ -135,17 +156,17 @@ let fundef_to_ir fd =
   in
   let bb = append_block context "entry" f in
   let _ = position_at_end bb builder in
-  let value = codegen' body in
+  let value = codegen' body Ret in
   ()
 
 let main_to_ir main =
   let main = closure_to_ir main in
   let m = Array.make 0 void_type in
   let ft = function_type void_type m in
-  let f = define_function "main" ft the_module in
+  let f = declare_function "main" ft the_module in
   let bb = append_block context "entry" f in
   let _ = position_at_end bb builder in
-  let value = codegen' main in
+  let value = codegen' main Ret in
   ()
 
 let f name (main, functions) =
