@@ -143,8 +143,9 @@ let instanciate_builtin name varenv =
       let a, b, c = List.assoc name builtin_function' in
       TyFun (b, c)
     with _ ->
-      if List.exists (fun x -> x.name = name) varenv then TyInt
-      else raise (TypingError ("unbound " ^ name)) )
+      if List.exists (fun x -> x.name = name) varenv then TyInt else TyInt )
+
+(* else raise (TypingError ("unbound " ^ name)) ) *)
 
 let subst_var sigma v varenv =
   let (TyVar tyvar) = v.ty in

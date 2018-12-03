@@ -3,7 +3,7 @@
 open Syntax
 open Knormal
 
-let threshould = 25
+let threshould = 10000
 
 (* 
  * lambda lifting をすることによって値として関数が後に出現しない場合は自由変数を含んでいたとしてもクロージャが生成されないようにすることができた.

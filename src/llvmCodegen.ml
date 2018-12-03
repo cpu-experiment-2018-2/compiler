@@ -66,14 +66,20 @@ let i32zero = const_int i32_type 0
 
 let i1zero = const_int i1_type 0
 
+let nop () = build_add i32zero i32zero "" builder
+
+let filter_unit = List.filter (fun x -> x.ty <> TyUnit)
+
 let const_to_llvalue dest = function
   | CFloat x -> build_fadd (const_float float_type x) fzero dest builder
   | CInt x -> build_add (const_int i32_type x) i32zero dest builder
   | CBool x ->
       build_add (const_int i1_type (if x then 1 else 0)) i1zero dest builder
-  | CUnit -> failwith "void has not value"
+  | CUnit -> nop ()
 
-let find x = Hashtbl.find env x.name
+let find x =
+  let _ = Printf.printf "%s\n" x.name in
+  Hashtbl.find env x.name
 
 let cmp_to_Icmp = function
   | Knormal.LE -> Icmp.Sle
@@ -94,15 +100,18 @@ let gencond x y cmp ty =
   | F -> build_fcmp condf lhs rhs "" builder
   | I -> build_icmp condi lhs rhs "" builder
 
-type ret = Ret | Value
+type ret = Ret of Type.t | Value | Void
 
-let rec codegen_ret x =
+let rec codegen_ret x ty =
   match x with
   | C CUnit -> build_ret_void builder
-  | Var x -> build_ret (Hashtbl.find env x.name) builder
-  | _ ->
+  | Var x -> build_ret (find x) builder
+  | _ -> (
       let a = Syntax.alpha () in
-      codegen' (Let (a, x, Ans (Var a))) Ret
+      let a = {a with ty} in
+      match ty with
+      | TyUnit -> codegen' (Let (a, x, Ans (C CUnit))) (Ret ty)
+      | _ -> codegen' (Let (a, x, Ans (Var a))) (Ret ty) )
 
 and codegen dest x =
   let v = to_llvalue dest x in
@@ -112,20 +121,20 @@ and codegen' x ret_type =
   match x with
   | Ans u -> (
     match ret_type with
-    | Ret -> codegen_ret u
+    | Ret ty -> codegen_ret u ty
+    | Void -> codegen "" u
     | Value ->
         let a = Syntax.genvar () in
         codegen a u )
   | Let (n, e1, e2) ->
+      let n = {n with name= (if n.ty = TyUnit then "" else n.name)} in
       let v = codegen n.name e1 in
       let _ = Hashtbl.add env n.name v in
       codegen' e2 ret_type
 
 and to_llvalue dest x =
-  let unary f x = f (Hashtbl.find env x.name) dest builder in
-  let binary f x y =
-    f (Hashtbl.find env x.name) (Hashtbl.find env y.name) dest builder
-  in
+  let unary f x = f (find x) dest builder in
+  let binary f x y = f (find x) (find y) dest builder in
   match x with
   | C y -> const_to_llvalue dest y
   | Var x -> find x
@@ -138,26 +147,35 @@ and to_llvalue dest x =
   | Op (Primitive Neg, [x]) -> unary build_neg x
   | Op (Primitive FNeg, [x]) -> unary build_fneg x
   | Call (f, args) ->
-      let _ = Printf.printf "call %s\n" f.name in
+      let _ =
+        Printf.printf "call %s -> %s ty=%s\n" f.name dest (Type.show f.ty)
+      in
       let (TyFun (_, ret)) = f.ty in
       let (Some f) = lookup_function f.name the_module in
-      build_call f (Array.of_list (List.map find args)) dest builder
+      build_call f
+        (Array.of_list (List.map find (filter_unit args)))
+        dest builder
   | If (cmp, x, y, e1, e2, ty) ->
+      let _ = Printf.printf "cmp %s %s -> dest %s\n" x.name y.name dest in
       let cond_val = gencond x y cmp ty in
       let start_bb = insertion_block builder in
       let the_function = block_parent start_bb in
       let then_bb = append_block context "then" the_function in
       let _ = position_at_end then_bb builder in
-      let then_val = codegen' e1 Value in
+      let ret = if dest = "" then Void else Value in
+      let then_val = codegen' e1 ret in
       let new_then_bb = insertion_block builder in
       let else_bb = append_block context "else" the_function in
       let _ = position_at_end else_bb builder in
-      let else_val = codegen' e2 Value in
+      let else_val = codegen' e2 ret in
       let new_else_bb = insertion_block builder in
+      (* Emit merge block. *)
       let merge_bb = append_block context "ifcont" the_function in
-      let _ = position_at_end merge_bb builder in
+      position_at_end merge_bb builder ;
       let incoming = [(then_val, new_then_bb); (else_val, new_else_bb)] in
-      let phi = build_phi incoming "iftmp" builder in
+      let phi =
+        if dest = "" then nop () else build_phi incoming dest builder
+      in
       (* Return to the start block to add the conditional branch. *)
       position_at_end start_bb builder ;
       ignore (build_cond_br cond_val then_bb else_bb builder) ;
@@ -178,10 +196,24 @@ let type_to_lltype = function
   | TyInt -> i32_type
   | TyFloat -> float_type
   | TyTuple _ | TyArray _ -> pointer_type i32_type
+  | TyVar x -> i32_type
+
+let fundef_global_proto =
+  let f (name, (_, args, ret)) =
+    let args =
+      Array.of_list
+        (List.map type_to_lltype (List.filter (fun x -> x <> TyUnit) args))
+    in
+    let ret = type_to_lltype ret in
+    let ft = function_type ret args in
+    let f = declare_function name ft the_module in
+    ()
+  in
+  List.iter f Typing.builtin_function'
 
 let fundef_proto fd =
-  let (TyFun (args, ret)) = fd.f.ty in
-  let body = closure_to_ir fd.body in
+  let args = List.map (fun x -> x.ty) fd.args in
+  let (TyFun (_, ret)) = fd.f.ty in
   let args = Array.of_list (List.map type_to_lltype args) in
   let ret = type_to_lltype ret in
   let ft = function_type ret args in
@@ -189,33 +221,38 @@ let fundef_proto fd =
   ()
 
 let fundef_to_ir fd =
-  (* let (TyFun (args, ret)) = fd.f.ty in *)
-  (* let args = Array.of_list (List.map type_to_lltype args) in *)
-  (* let ret = type_to_lltype ret in *)
-  (* let ft = function_type ret args in *)
-  (* let f = declare_function fd.f.name ft the_module in *)
+  let _ = Printf.printf "define %s\n" fd.f.name in
+  let args = List.map (fun x -> x.ty) fd.args in
+  let (TyFun (_, ret)) = fd.f.ty in
   let (Some f) = lookup_function fd.f.name the_module in
   let body = closure_to_ir fd.body in
+  let _ = List.iter (fun x -> Printf.printf "%s " x.name) fd.args in
+  let _ =
+    Printf.printf "%d %d"
+      (Array.length (params f))
+      (List.length (filter_unit fd.args))
+  in
   let _ =
     Array.iter2
       (fun a n -> set_value_name n a ; Hashtbl.add env n a)
       (params f)
-      (Array.of_list (List.map (fun x -> x.name) fd.args))
+      (Array.of_list (List.map (fun x -> x.name) (filter_unit fd.args)))
   in
   let bb = append_block context "entry" f in
   let _ = position_at_end bb builder in
-  let value = codegen' body Ret in
-  ()
+  let value = codegen' body (Ret ret) in
+  dump_value value
 
 let main_to_ir main =
   let main = closure_to_ir main in
-  let m = Array.make 0 void_type in
+  let m = Array.make 0 i32_type in
   let ft = function_type void_type m in
   let f = declare_function "main" ft the_module in
+  let _ = add_function_attr f (create_string_attr context "nouwind" "") in
   let bb = append_block context "entry" f in
   let _ = position_at_end bb builder in
-  let value = codegen' main Ret in
-  ()
+  let value = codegen' main (Ret TyUnit) in
+  dump_value value
 
 let f name (main, functions) =
   let _ = List.iter fundef_proto functions in
