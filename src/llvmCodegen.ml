@@ -31,8 +31,8 @@ type u =
   | C of Syntax.c
   | Var of name
   | Op of op * name list
-  | Load of name * name * int
-  | Store of name * name * int
+  | Load of  name * name 
+  | Store of name * name  * name
   | If of Knormal.cmp * name * name * v * v * cmpty
   | Call of name * name list
 [@@deriving show]
@@ -49,8 +49,8 @@ let rec closure_to_ir = function
   | Const (CFloat x, d) -> Ans (C (CFloat x))
   | Const (CBool x, d) -> Ans (C (CBool x))
   | Const (CUnit, d) -> Ans (C CUnit)
-  | Op(ArrayGet _, [x;y], d) -> let a = alpha TyInt in Let(a, Op(Primitive Add, [x;y]), Ans(Store(z,a,0)))
-  | Op(ArrayPut _, [x;y;z], d) -> let a = alpha TyInt in Let(a, Op(Primitive Add, [x;y]), Ans(Store(z,a,0)))
+  | Op(ArrayGet _, [x;y], d) -> Ans(Load(x,y))
+  | Op(ArrayPut _, [x;y;z], d) -> Ans(Store(x,y,z))
   | Op (op, l, d) -> Ans (Op (op, l))
   | If (cmp, x, y, e1, e2, d) -> (
     match x.ty with
@@ -141,6 +141,18 @@ and to_llvalue dest x =
   match x with
   | C y -> const_to_llvalue dest y
   | Var x -> find x
+  | Store(v,ptr,idx) -> 
+          let arr = [|find idx|] in
+          let a = Syntax.genvar() in
+          let x = build_in_bounds_gep (find ptr) arr a builder in
+          build_store (find v) x builder
+
+
+  | Load(ptr,idx) -> 
+          let arr = [|find idx|] in
+          let a = Syntax.genvar() in
+          let x = build_in_bounds_gep (find ptr) arr a builder in
+          build_load x a builder
   | Op (Primitive Add, [x; y]) -> binary build_add x y
   | Op (Primitive Sub, [x; y]) -> binary build_sub x y
   | Op (Primitive FAdd, [x; y]) -> binary build_fadd x y
