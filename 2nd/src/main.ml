@@ -67,7 +67,7 @@ let lexbuf oc l =
     let p = X86simm.f p in
     let p = X86emit.f oc p in
     ()
-  (* else if !llvm_ir then LlvmCodegen.f !fname p *)
+  else if !llvm_ir then LlvmCodegen.f !fname p
   else
     let _ = print_string "Target architecture : elmo\n" in
     let p, func = Virtual.h p in
