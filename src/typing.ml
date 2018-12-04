@@ -122,7 +122,11 @@ let builtin_function' =
   ; ("int_of_float", ([], [TyFloat], TyInt))
   ; ( "create_array"
     , let s = Type.genvar () in
-      ([s], [TyInt; TyVar s], TyArray (TyVar s)) ) ]
+      ([s], [TyInt; TyVar s], TyArray (TyVar s)) ) 
+  ; ( "create_tuple"
+    , let s = Type.genvar () in
+    ([s], [TyInt], TyTuple []) ) ]
+
 
 let builtin_vars =
   List.map

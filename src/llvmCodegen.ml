@@ -44,13 +44,33 @@ let rec concat var e1 e2 =
   | Ans x -> Let (var, x, e2)
   | Let (y, t1, t2) -> Let (y, t1, concat var t2 e2)
 
-let rec closure_to_ir = function
+let rec closure_to_ir x=match x with 
   | Const (CInt x, d) -> Ans (C (CInt x))
   | Const (CFloat x, d) -> Ans (C (CFloat x))
   | Const (CBool x, d) -> Ans (C (CBool x))
   | Const (CUnit, d) -> Ans (C CUnit)
   | Op(ArrayGet _, [x;y], d) -> Ans(Load(x,y))
   | Op(ArrayPut _, [x;y;z], d) -> Ans(Store(x,y,z))
+  | Op(Projection (idx,_,_), [x], d) -> let a = alpha TyInt in Let(a, C(CInt idx), Ans(Load(x,a)))
+  | Tuple(l,d) -> 
+          let ty = (TyTuple(List.map (fun x -> x.ty) l)) in
+          let base= alpha (TyTuple(List.map (fun x -> x.ty) l)) in
+          let hoge = snd(
+          List.fold_right
+          (
+              fun  p (idx,acc) -> 
+                  let a = alpha TyUnit in
+                  let idx' = alpha TyInt in
+                  (idx - 1,Let(idx', C(CInt idx),Let(a, Store(base, idx', p), acc)))
+          ) 
+          l
+          ((List.length l) - 1, Ans(Var(base)))
+          )
+          in 
+          let f = Syntax.alpha() in 
+          let f = { f with name = "create_tuple"; ty = TyFun([TyInt],TyTuple[]) } in
+          let a = alpha TyInt in 
+          Let(a, C(CInt (List.length l)), Let(base , Call(f,[a]), hoge))
   | Op (op, l, d) -> Ans (Op (op, l))
   | If (cmp, x, y, e1, e2, d) -> (
     match x.ty with
@@ -62,6 +82,7 @@ let rec closure_to_ir = function
   | Let (var, e1, e2, d) -> concat var (closure_to_ir e1) (closure_to_ir e2)
   | Var (var, d) -> Ans (Var var)
   | AppDir (var, ys, d) -> Ans (Call (var, ys))
+  | _ -> failwith  (Closure.show x)
 
 let fzero = const_float float_type 0.0
 
@@ -141,13 +162,11 @@ and to_llvalue dest x =
   match x with
   | C y -> const_to_llvalue dest y
   | Var x -> find x
-  | Store(v,ptr,idx) -> 
+  | Store(ptr,idx,v) -> 
           let arr = [|find idx|] in
           let a = Syntax.genvar() in
           let x = build_in_bounds_gep (find ptr) arr a builder in
           build_store (find v) x builder
-
-
   | Load(ptr,idx) -> 
           let arr = [|find idx|] in
           let a = Syntax.genvar() in
