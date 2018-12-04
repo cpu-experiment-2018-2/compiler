@@ -1,0 +1,12 @@
+
+
+class register = 
+    object(self)
+        val mutable reg = (Array.make 32 None : Syntax.var option array)
+        val mutable stack = (VarMap.empty : Syntax.VarMap.t)
+        method init reg = 
+            List.map 
+    end
+
+
+let a = new register
