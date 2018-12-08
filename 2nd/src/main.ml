@@ -1,4 +1,5 @@
 open Virtual
+let global_name = ref "g.ml" 
 
 let x86 = ref false
 
@@ -67,7 +68,16 @@ let lexbuf oc l =
     let p = X86simm.f p in
     let p = X86emit.f oc p in
     ()
-  else if !llvm_ir then LlvmCodegen.f !fname p
+  else if !llvm_ir then 
+      (
+      (* let ic = open_in !global_name in *)
+      (* let l =   (Lexing.from_channel ic) in *)
+      (* let g = Parser.top_exp Lexer.token l in *)
+      (* let g = Typing.f g in *)
+      (* let g = Knormal.f g in *)
+      (* let g = Anormal.f g in *)
+      LlvmCodegen.f !fname p 
+      )
   else
     let _ = print_string "Target architecture : elmo\n" in
     let p, func = Virtual.h p in

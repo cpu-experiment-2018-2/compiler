@@ -128,9 +128,9 @@ exp:
 | exp LESS_GREATER exp
     { Op(Primitive(Not),[(Op(Primitive(EQ),[$1; $3] ,getdebug()))],getdebug()) }
 | exp LESS exp
-    { Op(Primitive(Not),[(Op(Primitive(GE),[$1; $3] ,getdebug()))],getdebug())}
+    { Op(Primitive(LT),[$1; $3] ,getdebug())}
 | exp GREATER exp
-    { Op(Primitive(Not),[(Op(Primitive(LE),[$1; $3] ,getdebug()))], getdebug())}
+    { Op(Primitive(GT),[$1; $3] ,getdebug())}
 
 
 | IF exp THEN exp ELSE exp

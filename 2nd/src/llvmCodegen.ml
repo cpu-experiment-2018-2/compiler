@@ -287,8 +287,25 @@ let main_to_ir main =
   let _ = position_at_end bb builder in
   let value = codegen' main (Ret TyUnit) in
   dump_value value
+open Global
+let rec ty_to_lltype x = 
+    match x with
+    | Bool -> i1_type
+    | Int -> i32_type
+    | Float -> float_type
+    | Array (x,y)-> array_type (ty_to_lltype x) y
+    | Tuple (l) -> struct_type (context) (Array.of_list (List.map ty_to_lltype l))
+
+(* let emit_global_var (name, ty) =  *)
+(*     let v = build_array_malloc (ty_to_lltype ty) name the_module in *)
+(*     v *)
+
+
+(* let emit_global global =  *)
+(*     List.map emit_global_var global *)
 
 let f name (main, functions) =
+  (* let v = emit_global global in *)
   let _ = List.iter fundef_proto functions in
   let _ = List.iter fundef_to_ir functions in
   let _ = main_to_ir main in
