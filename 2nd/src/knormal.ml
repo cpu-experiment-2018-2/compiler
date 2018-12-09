@@ -148,7 +148,7 @@ let rec knormalize (e : Syntax.t) =
    |Op (Primitive GT, l, d)
    |Op (Primitive LE, l, d)
    |Op (Primitive LT, l, d) ->
-      knormalize (If (e, Const (CInt 1, d), Const (CInt 0, d), d))
+      knormalize (If (e, Const (CBool true, d), Const (CBool false, d), d))
   | Op (Adhoc AAdd, [x; y], d) -> (
       let _, tx = knormalize x in
       match tx with
