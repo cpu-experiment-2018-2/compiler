@@ -7,6 +7,9 @@ let context = global_context ()
 
 let the_module = create_module context ""
 
+let _ = set_data_layout ("e-m:e-p:32:32") the_module
+
+
 let builder = builder context
 
 let env : (string, llvalue) Hashtbl.t = Hashtbl.create 10
