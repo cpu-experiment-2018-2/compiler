@@ -18,21 +18,31 @@ let i32_type = i32_type context
 let i1_type = i1_type context
 
 let void_type = void_type context
+let type_to_lltype = function
+  | TyUnit -> void_type
+  | TyBool -> i1_type
+  | TyInt -> i32_type
+  | TyFloat -> float_type
+  | TyTuple _ | TyArray _ -> pointer_type i32_type
+  | TyVar x -> i32_type
+
 
 type name = Syntax.var [@@deriving show]
 
 type cmpty = F | I [@@deriving show]
 
 type op = Syntax.op [@@deriving show]
-let alpha ty = 
-    let a = Syntax.alpha() in
-    { a with ty = ty }
+
+let alpha ty =
+  let a = Syntax.alpha () in
+  {a with ty}
+
 type u =
   | C of Syntax.c
   | Var of name
   | Op of op * name list
-  | Load of  name * name 
-  | Store of name * name  * name
+  | Load of name * name
+  | Store of name * name * name
   | If of Knormal.cmp * name * name * v * v * cmpty
   | Call of name * name list
 [@@deriving show]
@@ -85,7 +95,7 @@ let rec closure_to_ir x =
   | Let (var, e1, e2, d) -> concat var (closure_to_ir e1) (closure_to_ir e2)
   | Var (var, d) -> Ans (Var var)
   | AppDir (var, ys, d) -> Ans (Call (var, ys))
-  | _ -> failwith  (Closure.show x)
+  | _ -> failwith (Closure.show x)
 
 let fzero = const_float float_type 0.0
 
