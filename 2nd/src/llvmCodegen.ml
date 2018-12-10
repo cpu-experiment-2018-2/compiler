@@ -178,13 +178,26 @@ and to_llvalue dest x =
   let dest = dest.name in
   let unary f x = f (find x) dest builder in
   let binary f x y = f (find x) (find y) dest builder in
+  (* let rec cast x =  *)
+  (*     let v_ = Syntax.genvar () in *)
+  (*     match x.ty with *)
+  (*     |  TyArray _ *)
+  (*     |  TyTuple _  ->  *)
+  (*             (build_ptrtoint (find x) (i32_type)  v_ builder) *)
+  (*     | _ ->  *)
+  (*             (build_bitcast (find x) (type_to_lltype (dest)) v_ builder)  *)
+
   match x with
   | C y -> const_to_llvalue dest y
   | Var x -> find x
   | Store (ptr, idx, v) ->
       let arr = [|find idx|] in
       let v_ = Syntax.genvar () in
-      let v = build_bitcast (find v) i32_type v_ builder in
+      let v =( match v.ty with 
+        | TyArray _ | TyTuple _ ->  
+         build_ptrtoint (find v) i32_type v_ builder
+        | _ -> build_zext_or_bitcast (find v) i32_type v_ builder 
+      ) in
       let a = Syntax.genvar () in
       let x = build_in_bounds_gep (find ptr) arr a builder in
       build_store v x builder
@@ -197,6 +210,9 @@ and to_llvalue dest x =
       build_load x a builder
   | Op (Primitive Add, [x; y]) -> binary build_add x y
   | Op (Primitive Sub, [x; y]) -> binary build_sub x y
+  | Op (Primitive Mul, [x; y]) -> binary build_mul x y
+  | Op (Primitive Div, [x; y]) -> binary build_udiv x y
+  | Op (Primitive Not, [x]) -> unary build_not x
   | Op (Primitive FAdd, [x; y]) -> binary build_fadd x y
   | Op (Primitive FDiv, [x; y]) -> binary build_fdiv x y
   | Op (Primitive FMul, [x; y]) -> binary build_fmul x y
@@ -211,7 +227,11 @@ and to_llvalue dest x =
       let (Some fv) = lookup_function f.name the_module in
       if f.name = "create_array" then
           (let [x;y] = args in
-            let v = build_bitcast (find y) i32_type (Syntax.genvar()) builder in
+              let v =( match y.ty with 
+                | TyArray _ | TyTuple _ ->  
+                 build_ptrtoint (find y) i32_type (Syntax.genvar()) builder
+                | _ -> build_bitcast (find y) i32_type (Syntax.genvar()) builder 
+            ) in
               (
                   build_call fv
                     (Array.of_list [(find x); v])
@@ -274,7 +294,7 @@ let fundef_global_proto =
   List.iter f Typing.builtin_function'
 
 let fundef_proto fd =
-  let args = List.map (fun x -> x.ty) fd.args in
+  let args = List.map (fun x -> x.ty) (filter_unit fd.args) in
   let (TyFun (_, ret)) = fd.f.ty in
   let args = Array.of_list (List.map type_to_lltype args) in
   let ret = type_to_lltype ret in
@@ -290,7 +310,8 @@ let fundef_to_ir fd =
   let body = closure_to_ir fd.body in
   let _ = List.iter (fun x -> Printf.printf "%s " x.name) fd.args in
   let _ =
-    Printf.printf "%d %d"
+    Printf.printf "%s %d %d\n"
+      fd.f.name
       (Array.length (params f))
       (List.length (filter_unit fd.args))
   in
