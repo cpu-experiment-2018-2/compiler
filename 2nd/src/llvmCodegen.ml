@@ -15,6 +15,8 @@ let builder = builder context
 
 let env : (string, llvalue) Hashtbl.t = Hashtbl.create 10
 
+let env_constant : (string, llvalue) Hashtbl.t = Hashtbl.create 10
+
 let float_type = float_type context
 
 let i32_type = i32_type context
@@ -120,7 +122,10 @@ let const_to_llvalue dest = function
 
 let find x =
   let _ = Printf.printf "%s\n" x.name in
-  Hashtbl.find env x.name
+  match Hashtbl.find_opt env x.name with
+  | Some(y) -> y
+  | None -> Hashtbl.find env_constant x.name 
+
 
 let cmp_to_Icmp = function
   | Knormal.LE -> Icmp.Sle
@@ -208,10 +213,14 @@ and to_llvalue dest x =
   | Load (ptr, idx) ->
       let arr = [|find idx|] in
       let v_ = Syntax.genvar () in
-      let v = build_bitcast (find ptr) (pointer_type (type_to_lltype destty)) v_ builder in
+      let type_to_lltype2 x = 
+          type_to_lltype(if x = TyBool then TyInt else x) in
+      let v = build_bitcast (find ptr) (pointer_type (type_to_lltype2 destty)) v_ builder in
       let a = Syntax.genvar () in
       let x = build_in_bounds_gep v arr a builder in
-      build_load x a builder
+      let v = build_load x a builder in
+      let v_ = Syntax.genvar () in
+      build_trunc_or_bitcast v (type_to_lltype destty) v_ builder
   | Op (Primitive Add, [x; y]) -> binary build_add x y
   | Op (Primitive Sub, [x; y]) -> binary build_sub x y
   | Op (Primitive Mul, [x; y]) -> binary build_mul x y
@@ -346,10 +355,10 @@ let f name (main, functions) (hp,global) =
   let _ = VarMap.iter (fun key v -> 
       match v with
       | Arr (k,init) -> 
-              Hashtbl.add env key.name (define_global key.name (const_int i32_type k)  the_module )
+              Hashtbl.add env_constant key.name (const_inttoptr (const_int i32_type k) (pointer_type i32_type)) 
       | Tup (k,tup) -> 
-              Hashtbl.add env key.name (define_global key.name (const_int i32_type k)  the_module )
-  )  global in
+              Hashtbl.add env_constant key.name (const_inttoptr (const_int i32_type k) (pointer_type i32_type))
+              )  global in
   let _ = List.iter fundef_proto functions in
   let _ = List.iter fundef_to_ir functions in
   let _ = main_to_ir main in
