@@ -10,6 +10,8 @@ exception UnifyError of string * string
 
 let empty = []
 
+let binded =  ref VarSet.empty
+
 let get_eq l r d = {left= l; right= r; debug= d}
 
 let rec ty_subst (sigma : (int * t) list) t =
@@ -147,7 +149,7 @@ let instanciate_builtin name varenv =
       let a, b, c = List.assoc name builtin_function' in
       TyFun (b, c)
     with _ ->
-      if List.exists (fun x -> x.name = name) varenv then TyInt else TyInt )
+      if List.exists (fun x -> x.name = name) varenv then TyInt else TyVar(Type.genvar()) )
 
 (* else raise (TypingError ("unbound " ^ name)) ) *)
 

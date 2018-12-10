@@ -1,5 +1,7 @@
 open Virtual
-let global_name = ref "g.ml" 
+
+let hp  = 1
+let global_name = ref "g.ml"
 
 let x86 = ref false
 
@@ -44,22 +46,28 @@ let lexbuf oc l =
   let _ = if !show_typed then print_string (Syntax.show p) else () in
   let p = Knormal.f p in
   let _ = print_string "\nknormalized\n" in
-  let _ = if !show_knormal then Knormal.myprint p 0 else () in
+  let _ = if !show_knormal then print_string (Knormal.show p) else () in
   let p = Alpha.f p in
   let _ = print_string "\nalpha conversion\n" in
   let _ = if !show_alpha then Knormal.myprint p 0 else () in
   let p = Anormal.f p in
   let _ = print_string "\nanormalized\n" in
   let _ = if !show_anormal then Knormal.myprint p 0 else () in
-  let p = LambdaLifting.f p in
+  (* let p = LambdaLifting.f p in *)
   let p = Alpha.f p in
   let _ = if !show_afeter_lambda_lifting then Knormal.myprint p 0 else () in
   let p = optimtime 0 p in
   let _ = print_string "\noptimized\n" in
   let _ = if !show_optimized then Knormal.myprint p 0 else () in
+  let ic = open_in !global_name in
+  let l =   (Lexing.from_channel ic) in
+  let g = Parser.top_exp Lexer.token l in
+  let g = Typing.f g in
+  let g = Knormal.f g in
+  let g = HpAlloc.f hp g in
   let p = Closure.f p opt_after_closure in
   let _ = print_string "closure conversion succeed\n" in
-  (* let _ = if !show_closure then print_string (Closure.show (fst p)) else () in *)
+  (* let _ = if !show_closure then print_string (Closure.show (fst p)) else () in  *)
   (* let _ = if !show_closure then Closure.myprint (fst p) "" else () in *)
   if !x86 then
     let _ = print_string "Target architecture : x86-64\n" in
@@ -68,16 +76,8 @@ let lexbuf oc l =
     let p = X86simm.f p in
     let p = X86emit.f oc p in
     ()
-  else if !llvm_ir then 
-      (
-      (* let ic = open_in !global_name in *)
-      (* let l =   (Lexing.from_channel ic) in *)
-      (* let g = Parser.top_exp Lexer.token l in *)
-      (* let g = Typing.f g in *)
-      (* let g = Knormal.f g in *)
-      (* let g = Anormal.f g in *)
-      LlvmCodegen.f !fname p 
-      )
+  else if !llvm_ir then
+    LlvmCodegen.f !fname p g
   else
     let _ = print_string "Target architecture : elmo\n" in
     let p, func = Virtual.h p in

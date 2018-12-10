@@ -2,7 +2,7 @@ open Syntax
 open Closure
 
 let rec change env x =
-    if VarMap.mem x env then change env (VarMap.find x env) else x
+  if VarMap.mem x env then change env (VarMap.find x env) else x
 
 let rec remove_alias_let env e =
   (*

@@ -105,6 +105,12 @@ module VarMap2 = Map.Make (struct
   let compare = compare_g
 end)
 
+
+module M = Map.Make (struct
+  type t = string
+  let compare x y = compare x y
+end)
+
 module VarMap = Map.Make (struct
   type t = var
 

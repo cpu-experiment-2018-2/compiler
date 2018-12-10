@@ -1,7 +1,7 @@
 open Syntax
 open Type
 open Knormal
-
+open HpAlloc
 type 'a u =
   | Const of c * 'a
   | Op of op * var list * 'a
@@ -86,8 +86,8 @@ let f =
     let closure_conversion x = closure_conversion' known x in
     match e with
     | Const (x, d) -> Const (x, d)
-    | Op (Primitive Not, [x], d) ->
-        AppDir ({name= "not"; debug= d; ty= Type.TyInt}, [x], d)
+    (* | Op (Primitive Not, [x], d) -> *)
+    (*     AppDir ({name= "not"; debug= d; ty= Type.TyInt}, [x], d) *)
     | Op (op, l, d) -> Op (op, l, d)
     | If (cmp, n1, n2, e1, e2, d) ->
         If (cmp, n1, n2, closure_conversion e1, closure_conversion e2, d)
@@ -96,7 +96,7 @@ let f =
         let toplevel_backup = !toplevel in
         let known' = VarSet.add f.f known in
         let e1' = closure_conversion' known' f.body in
-        let zs = VarSet.diff (fv e1') (VarSet.of_list f.args) in
+        let zs = VarSet.diff (fv e1') (VarSet.union(VarSet.of_list f.args) !Typing.binded) in
         let known', e1' =
           if VarSet.is_empty zs then (known', e1')
           else (
@@ -105,7 +105,7 @@ let f =
             (known, e1') )
         in
         let fv' =
-          VarSet.elements (VarSet.diff (fv e1') (VarSet.of_list f.args))
+          VarSet.elements (VarSet.diff (fv e1') (VarSet.union (VarSet.of_list f.args) !Typing.binded))
         in
         let _ =
           add_toplevel {f= f.f; args= f.args; fv= fv'; body= e1'; info= f.info}
