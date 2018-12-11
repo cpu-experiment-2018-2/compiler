@@ -339,7 +339,7 @@ let fundef_to_ir fd =
   let value = codegen' body (Ret ret) in
   dump_value value
 
-let main_to_ir main global =
+let main_to_ir main =
   let main = closure_to_ir main in
   let m = Array.make 0 i32_type in
   let ft = function_type void_type m in

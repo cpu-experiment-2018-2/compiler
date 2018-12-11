@@ -1,5 +1,8 @@
 float float_of_int(int x) { return (float)x; }
 int int_of_float(float y) { return (int)y; }
+float floor(float y) { return (float)((int)y); }
+float sqrt(float y) {return sqrt(y);}
+
 // <========= https://github.com/kw-udon/ucc/blob/master/lib/libm.c
 float kernel_cos(float x) {
   float a1, a2, a3, a4;
@@ -25,13 +28,17 @@ float kernel_sin(float x) {
 }
 // ==========>
 
-int mymalloc(int x) {
+
+ int* mymalloc(int x) {
   int *p = (int *)1;
   int tmp = p[0];
   p[0] += x;
-  return tmp;
+  return (int*)tmp;
 }
-int *create_array(int a, int b) {
+int* create_tuple(int x) {
+  return mymalloc(x);
+}
+int*create_array(int a, int b) {
   int *c = (int *)mymalloc(a);
   for (int i = 0; i < a; ++i) {
     c[i] = b;

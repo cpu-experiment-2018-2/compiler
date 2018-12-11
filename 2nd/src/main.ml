@@ -37,7 +37,20 @@ let opt_after_closure p = p
 let rec optimtime x p = if x = 0 then p else optimtime (x - 1) (optimize p)
 
 let lexbuf oc l =
+
   let p = Parser.top_exp Lexer.token l in
+ (* global *)
+  let g = if Sys.file_exists !global_name then
+  let ic = open_in !global_name in
+  let l =   (Lexing.from_channel ic) in
+  let g = Parser.top_exp Lexer.token l in
+  let g = Typing.f g in
+  let g = Knormal.f g in
+   HpAlloc.f hp g 
+  else
+      (0,Syntax.VarMap.empty)
+  in
+ (* end global *)
   let _ = print_newline () in
   let _ = print_string "parse succeed\n" in
   let _ = if !show_ast then print_string (Syntax.show p) else () in
@@ -59,12 +72,7 @@ let lexbuf oc l =
   let p = optimtime 0 p in
   let _ = print_string "\noptimized\n" in
   let _ = if !show_optimized then Knormal.myprint p 0 else () in
-  let ic = open_in !global_name in
-  let l =   (Lexing.from_channel ic) in
-  let g = Parser.top_exp Lexer.token l in
-  let g = Typing.f g in
-  let g = Knormal.f g in
-  let g = HpAlloc.f hp g in
+
   let p = Closure.f p opt_after_closure in
   let _ = print_string "closure conversion succeed\n" in
   (* let _ = if !show_closure then print_string (Closure.show (fst p)) else () in  *)
