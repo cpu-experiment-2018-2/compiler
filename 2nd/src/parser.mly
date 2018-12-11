@@ -107,6 +107,7 @@ exp:
 | MINUS exp
     %prec prec_unary_minus
     { match $2 with
+    | Const(CInt(f),_) -> Const(CInt(-f),getdebug())
     | Const(CFloat(f),_) -> Const(CFloat(-.f),getdebug())
     | e -> Op(Primitive(Neg),[e],getdebug())}
 | exp AST exp
