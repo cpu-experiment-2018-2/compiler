@@ -56,7 +56,7 @@ and apply' f e =
   | Let (var, u, v) -> Let (f var, apply f u, apply' f v)
   | Ans u -> Ans (apply f u)
 
-let conv x = Syntax.Var x
+let conv x = Syntax.GVar x
 
 let ap = apply' conv
 
@@ -65,6 +65,8 @@ type tmp = (Syntax.debug, Syntax.var) u [@@deriving show]
 type t = (Syntax.debug, Syntax.var) v [@@deriving show]
 
 type k = (Syntax.debug, Syntax.g) v [@@deriving show]
+type ku = (Syntax.debug, Syntax.g) u [@@deriving show]
+
 
 type ('a, 'b) fundef =
   { label: string
@@ -118,7 +120,7 @@ let rec closure_to_virtual' (e : Closure.t) =
       concat (conv var) (closure_to_virtual e1) (closure_to_virtual e2)
   | Var (var, d) -> to_g (Ans (Var (var, d)))
   | Closure (fundef, e) ->
-      let fptr = Syntax.Var fundef.label in
+      let fptr = Syntax.GVar fundef.label in
       let ops x =
         Let
           ( Int 29
@@ -136,7 +138,7 @@ let rec closure_to_virtual' (e : Closure.t) =
                                f
                                  (Let
                                     ( Int 0
-                                    , Store (Var x, fptr, counter, tmp_debug)
+                                    , Store (GVar x, fptr, counter, tmp_debug)
                                     , y )) )
                            , counter + 1 ) )
                          ((fun x -> x), 1)
@@ -158,33 +160,24 @@ let rec closure_to_virtual' (e : Closure.t) =
   | AppCls (var, ys, d) -> to_g (Ans (CallCls (var, ys, d)))
   | Tuple (names, d) ->
       let ( >>= ) x f = f x in
-      Syntax.Var (tmp_var ())
+      Syntax.GVar (tmp_var ())
       >>= fun x ->
       Let
         ( x
         , Li (List.length names, d)
-        , Syntax.Var (tmp_var ())
+        , Syntax.GVar (tmp_var ())
           >>= fun y ->
           insert_alloc x y
             (fst
                (List.fold_right
                   (fun z (acc, counter) ->
                     ( Let
-                        ( Syntax.Var (tmp_var ())
-                        , Store (Var z, y, counter, d)
+                        ( Syntax.GVar (tmp_var ())
+                        , Store (GVar z, y, counter, d)
                         , acc )
                     , counter - 1 ) )
                   names
                   (Ans (Var (y, d)), List.length names - 1))) )
   | _ -> failwith (Closure.show e)
 
-let rec function_to_virtual2 (fundef : debug Closure.fundef) =
-  let body = closure_to_virtual' fundef.body in
-  { label= fundef.f.name
-  ; args= List.map conv fundef.args
-  ; body
-  ; fv= List.map conv fundef.fv
-  ; ret= Syntax.Var (tmp_var ())
-  ; local= 0 }
 
-let h (x, y) = (closure_to_virtual' x, List.map function_to_virtual2 y)

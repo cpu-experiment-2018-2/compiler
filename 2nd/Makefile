@@ -6,7 +6,7 @@ CFLAGS = -g -O2 -Wall -fPIC
 LIBINSTALL_FILES=build
 DOCS = src/common.ml src/type.ml src/syntax.ml src/lexer.ml src/parser.ml src/typing.ml src/knormal.ml src/alpha.ml src/anormal.ml src/constantFold.ml src/inline.ml src/cseElimination.ml  src/removeLet.ml src/closure.ml src/lambdaLifting.ml src/virtual.ml src/regalloc.ml src/asm.ml 
 
-SOURCES = x86/id.ml src/common.ml src/util.c src/type.ml src/syntax.ml src/lexer.mll src/parser.mly src/typing.ml src/ptyping.ml src/knormal.ml src/alpha.ml src/anormal.ml src/constantFold.ml src/inline.ml src/cseElimination.ml  src/hpAlloc.ml src/removeLet.ml src/closure.ml src/lambdaLifting.ml src/virtual.ml  src/asm.ml src/regalloc.ml src/llvmCodegen.ml x86/x86asm.ml x86/x86regAlloc.ml x86/x86simm.ml x86/x86virtual.ml x86/x86emit.ml  src/main.ml 
+SOURCES = x86/id.ml src/common.ml src/util.c src/type.ml src/syntax.ml src/lexer.mll src/parser.mly src/typing.ml src/ptyping.ml src/knormal.ml src/alpha.ml src/anormal.ml src/constantFold.ml src/inline.ml src/cseElimination.ml  src/hpAlloc.ml src/removeLet.ml src/closure.ml src/lambdaLifting.ml src/virtual.ml  src/scheduling.ml src/asm.ml src/regalloc.ml src/llvmCodegen.ml x86/x86asm.ml x86/x86regAlloc.ml x86/x86simm.ml x86/x86virtual.ml x86/x86emit.ml  src/main.ml 
 RESULT = compile
 OCAMLDOCFLAGS=-charset utf-8
 

@@ -88,7 +88,7 @@ let lexbuf oc l =
     LlvmCodegen.f !fname p g
   else
     let _ = print_string "Target architecture : elmo\n" in
-    let p, func = Virtual.h p in
+    let p, func = Scheduling.h p in
     let _ = print_string "to virtual succeed\n" in
     let _ = if !show_virtual then print_string (Virtual.show_k p) else () in
     let _ =

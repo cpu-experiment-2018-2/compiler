@@ -75,6 +75,8 @@ let rec fv = function
   | Tuple (x, _) -> VarSet.of_list x
 
 type t = debug u [@@deriving show]
+type l = debug fundef [@@deriving show]
+
 
 let (toplevel : debug fundef list ref) = ref []
 

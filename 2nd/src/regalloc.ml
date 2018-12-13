@@ -65,12 +65,12 @@ and get_livev' e =
 
 let get_liveu e =
   VarSet2.filter
-    (fun x -> match x with Var x -> true | _ -> false)
+    (fun x -> match x with GVar x -> true | _ -> false)
     (get_liveu' e)
 
 let get_livev e =
   VarSet2.filter
-    (fun x -> match x with Var x -> true | _ -> false)
+    (fun x -> match x with GVar x -> true | _ -> false)
     (get_livev' e)
 
 let gr =
@@ -427,7 +427,7 @@ and regalloc e (f, regmap, stackmap) last =
       alloc var u v (f, regmap, stackmap) None >>= fun x -> regalloc v x last
   | Ans u ->
       let en = Ans (Nop tmp_debug) in
-      alloc (Var (tmp_var ())) u en (f, regmap, stackmap) (Some last)
+      alloc (GVar (tmp_var ())) u en (f, regmap, stackmap) (Some last)
 
 let rec spill_reg_not_forget vars (f, regmap, stackmap) =
   let onreg =
@@ -543,7 +543,7 @@ let rec top (main, toplevel) =
     ; body= main
     ; args= []
     ; local= 0
-    ; ret= Syntax.Var (tmp_var ())
+    ; ret= Syntax.GVar (tmp_var ())
     ; fv= [] }
   in
   let li = main :: toplevel in
@@ -562,7 +562,7 @@ let rec top (main, toplevel) =
         let body, size =
           if List.length g.fv > 0 then
             let tmp =
-              [Syntax.Var {name= g.label; ty= TyInt; debug= tmp_debug}]
+              [Syntax.GVar {name= g.label; ty= TyInt; debug= tmp_debug}]
             in
             convert g.body (first_reg (g.args @ tmp)) (g.args @ tmp) stackinit
           else convert g.body (first_reg g.args) g.args stackinit
