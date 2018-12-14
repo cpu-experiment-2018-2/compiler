@@ -8,8 +8,7 @@ let context = global_context ()
 
 let the_module = create_module context ""
 
-let _ = set_data_layout ("e-m:e-p:32:32") the_module
-
+let _ = set_data_layout "e-m:e-p:32:32" the_module
 
 let builder = builder context
 
@@ -21,9 +20,12 @@ let float_type = float_type context
 
 let i32_type = i32_type context
 
+let i8_type = i8_type context
+
 let i1_type = i1_type context
 
 let void_type = void_type context
+
 let type_to_lltype = function
   | TyUnit -> void_type
   | TyBool -> i1_type
@@ -32,6 +34,18 @@ let type_to_lltype = function
   | TyTuple _ | TyArray _ -> pointer_type i32_type
   | TyVar x -> i32_type
 
+let incre_ptr_and_cast ptr destty arr =
+  let type_to_lltype2 x = type_to_lltype (if x = TyBool then TyInt else x) in
+  let ptr =
+    build_bitcast ptr (pointer_type i8_type) (Syntax.genvar ()) builder
+  in
+  let ptr = build_in_bounds_gep ptr arr (Syntax.genvar ()) builder in
+  let ptr =
+    build_bitcast ptr
+      (pointer_type (type_to_lltype2 destty))
+      (Syntax.genvar ()) builder
+  in
+  ptr
 
 type name = Syntax.var [@@deriving show]
 
@@ -123,9 +137,8 @@ let const_to_llvalue dest = function
 let find x =
   let _ = Printf.printf "%s\n" x.name in
   match Hashtbl.find_opt env x.name with
-  | Some(y) -> y
-  | None -> Hashtbl.find env_constant x.name 
-
+  | Some y -> y
+  | None -> Hashtbl.find env_constant x.name
 
 let cmp_to_Icmp = function
   | Knormal.LE -> Icmp.Sle
@@ -168,13 +181,13 @@ and codegen' x ret_type =
   | Ans u -> (
     match ret_type with
     | Ret ty -> codegen_ret u ty
-    | Void -> 
+    | Void ->
         let a = Syntax.alpha () in
-        let a = {a with ty = TyUnit;name="" } in
+        let a = {a with ty= TyUnit; name= ""} in
         codegen a u
     | Value ty ->
         let a = Syntax.alpha () in
-        let a = {a with ty } in
+        let a = {a with ty} in
         codegen a u )
   | Let (n, e1, e2) ->
       let n = {n with name= (if n.ty = TyUnit then "" else n.name)} in
@@ -183,7 +196,7 @@ and codegen' x ret_type =
       codegen' e2 ret_type
 
 and to_llvalue dest x =
-  let destty = dest.ty in 
+  let destty = dest.ty in
   let dest = dest.name in
   let unary f x = f (find x) dest builder in
   let binary f x y = f (find x) (find y) dest builder in
@@ -195,32 +208,51 @@ and to_llvalue dest x =
   (*             (build_ptrtoint (find x) (i32_type)  v_ builder) *)
   (*     | _ ->  *)
   (*             (build_bitcast (find x) (type_to_lltype (dest)) v_ builder)  *)
-
   match x with
   | C y -> const_to_llvalue dest y
   | Var x -> find x
   | Store (ptr, idx, v) ->
       let arr = [|find idx|] in
       let v_ = Syntax.genvar () in
-      let v =( match v.ty with 
-        | TyArray _ | TyTuple _ ->  
-         build_ptrtoint (find v) i32_type v_ builder
-        | _ -> build_zext_or_bitcast (find v) i32_type v_ builder 
-      ) in
-      let a = Syntax.genvar () in
-      let x = build_in_bounds_gep (find ptr) arr a builder in
+      let v =
+        match v.ty with
+        | TyArray _ | TyTuple _ -> build_ptrtoint (find v) i32_type v_ builder
+        | _ -> build_zext_or_bitcast (find v) i32_type v_ builder
+      in
+      let x = incre_ptr_and_cast (find ptr) TyInt arr in
+      (* let a = Syntax.genvar () in *)
+      (* let x = build_in_bounds_gep (find ptr) arr a builder in *)
       build_store v x builder
   | Load (ptr, idx) ->
       let arr = [|find idx|] in
       let v_ = Syntax.genvar () in
-      let type_to_lltype2 x = 
-          type_to_lltype(if x = TyBool then TyInt else x) in
-      let v = build_bitcast (find ptr) (pointer_type (type_to_lltype2 destty)) v_ builder in
-      let a = Syntax.genvar () in
-      let x = build_in_bounds_gep v arr a builder in
-      let v = build_load x a builder in
+      let x = incre_ptr_and_cast (find ptr) destty arr in
+      let v = build_load x (Syntax.genvar ()) builder in
       let v_ = Syntax.genvar () in
       build_trunc_or_bitcast v (type_to_lltype destty) v_ builder
+  (*  *)
+  (* | Store (ptr, idx, v) -> *)
+  (*     let arr = [|find idx|] in *)
+  (*     let v_ = Syntax.genvar () in *)
+  (*     let v =( match v.ty with  *)
+  (*       | TyArray _ | TyTuple _ ->   *)
+  (*        build_ptrtoint (find v) i32_type v_ builder *)
+  (*       | _ -> build_zext_or_bitcast (find v) i32_type v_ builder  *)
+  (*     ) in *)
+  (*     let a = Syntax.genvar () in *)
+  (*     let x = build_in_bounds_gep (find ptr) arr a builder in *)
+  (*     build_store v x builder *)
+  (* | Load (ptr, idx) -> *)
+  (*     let arr = [|find idx|] in *)
+  (*     let v_ = Syntax.genvar () in *)
+  (*     let type_to_lltype2 x =  *)
+  (*         type_to_lltype(if x = TyBool then TyInt else x) in *)
+  (*     let v = build_bitcast (find ptr) (pointer_type (type_to_lltype2 destty)) v_ builder in *)
+  (*     let a = Syntax.genvar () in *)
+  (*     let x = build_in_bounds_gep v arr a builder in *)
+  (*     let v = build_load x a builder in *)
+  (*     let v_ = Syntax.genvar () in *)
+  (*     build_trunc_or_bitcast v (type_to_lltype destty) v_ builder *)
   | Op (Primitive Add, [x; y]) -> binary build_add x y
   | Op (Primitive Sub, [x; y]) -> binary build_sub x y
   | Op (Primitive Mul, [x; y]) -> binary build_mul x y
@@ -239,24 +271,18 @@ and to_llvalue dest x =
       let (TyFun (_, ret)) = f.ty in
       let (Some fv) = lookup_function f.name the_module in
       if f.name = "create_array" then
-          (let [x;y] = args in
-              let v =( match y.ty with 
-                | TyArray _ | TyTuple _ ->  
-                 build_ptrtoint (find y) i32_type (Syntax.genvar()) builder
-                | _ -> build_bitcast (find y) i32_type (Syntax.genvar()) builder 
-            ) in
-              (
-                  build_call fv
-                    (Array.of_list [(find x); v])
-                    dest builder
-              )
-          )
-          else
-              (
-                  build_call fv
-                    (Array.of_list (List.map find (filter_unit args)))
-                    dest builder
-              )
+        let [x; y] = args in
+        let v =
+          match y.ty with
+          | TyArray _ | TyTuple _ ->
+              build_ptrtoint (find y) i32_type (Syntax.genvar ()) builder
+          | _ -> build_bitcast (find y) i32_type (Syntax.genvar ()) builder
+        in
+        build_call fv (Array.of_list [find x; v]) dest builder
+      else
+        build_call fv
+          (Array.of_list (List.map find (filter_unit args)))
+          dest builder
   | If (cmp, x, y, e1, e2, ty) ->
       let _ = Printf.printf "cmp %s %s -> dest %s\n" x.name y.name dest in
       let cond_val = gencond x y cmp ty in
@@ -292,7 +318,6 @@ and to_llvalue dest x =
       phi
   | _ -> failwith (show_u x)
 
-
 let fundef_global_proto =
   let f (name, (_, args, ret)) =
     let args =
@@ -323,8 +348,7 @@ let fundef_to_ir fd =
   let body = closure_to_ir fd.body in
   let _ = List.iter (fun x -> Printf.printf "%s " x.name) fd.args in
   let _ =
-    Printf.printf "%s %d %d\n"
-      fd.f.name
+    Printf.printf "%s %d %d\n" fd.f.name
       (Array.length (params f))
       (List.length (filter_unit fd.args))
   in
@@ -339,7 +363,7 @@ let fundef_to_ir fd =
   let value = codegen' body (Ret ret) in
   dump_value value
 
-let main_to_ir main =
+let main_to_ir main (hp,global) =
   let main = closure_to_ir main in
   let m = Array.make 0 i32_type in
   let ft = function_type void_type m in
@@ -347,20 +371,69 @@ let main_to_ir main =
   let _ = add_function_attr f (create_string_attr context "nouwind" "") in
   let bb = append_block context "entry" f in
   let _ = position_at_end bb builder in
+  let ptr = const_inttoptr (const_int i32_type 1) (pointer_type i32_type) in
+  let _ = ignore (build_store (const_int i32_type hp) ptr builder) in
+  let Some(fv) = lookup_function "set_sp" the_module  in
+  (* let _ = build_call fv (Array.of_list [(const_int i32_type 200000)]) ("") builder  in *)
+  let _ =
+    VarMap.iter
+      (fun key v ->
+        match v with
+        | Arr (k, init, len) ->
+            Hashtbl.add env_constant key.name
+              (const_inttoptr (const_int i32_type k) (pointer_type i32_type)) ;
+            let v = const_int i32_type (HpAlloc.get_int_value init) in
+            for i = k to k + len - 1 do
+              let ptr =
+                const_inttoptr (const_int i32_type i) (pointer_type i32_type)
+              in
+              let _ = ignore (build_store v ptr builder) in
+              ()
+            done
+        | Tup (k, tup) ->
+            Hashtbl.add env_constant key.name
+              (const_inttoptr (const_int i32_type k) (pointer_type i32_type)) ;
+            let vs =
+              Array.of_list
+                (List.map
+                   (fun x -> const_int i32_type (HpAlloc.get_int_value x))
+                   tup)
+            in
+            let len = List.length tup in
+            for i = 0 to len - 1 do
+              let _ = Printf.printf "generating %d\n" k  in
+              let v = vs.(i) in
+              let i = i + k in
+              let ptr =
+                const_inttoptr (const_int i32_type i) (pointer_type i32_type)
+              in
+              let _ = ignore (build_store v ptr builder) in
+              ()
+            done 
+              )
+      global
+  in
   let value = codegen' main (Ret TyUnit) in
-  dump_value value
+  ()
 
-let f name (main, functions) (hp,global) =
-  (* let v = emit_global global in *)
-  let _ = VarMap.iter (fun key v -> 
-      match v with
-      | Arr (k,init) -> 
-              Hashtbl.add env_constant key.name (const_inttoptr (const_int i32_type k) (pointer_type i32_type)) 
-      | Tup (k,tup) -> 
-              Hashtbl.add env_constant key.name (const_inttoptr (const_int i32_type k) (pointer_type i32_type))
-              )  global in
+(* dump_value value *)
+
+let f name (main, functions) (hp, global) =
+  let _ =
+    VarMap.iter
+      (fun key v ->
+        match v with
+        | Arr (k, init, len) ->
+            Hashtbl.add env_constant key.name
+              (const_inttoptr (const_int i32_type k) (pointer_type i32_type))
+        | Tup (k, tup) ->
+            Hashtbl.add env_constant key.name
+              (const_inttoptr (const_int i32_type k) (pointer_type i32_type))
+        )
+      global
+  in
   let _ = List.iter fundef_proto functions in
   let _ = List.iter fundef_to_ir functions in
-  let _ = main_to_ir main in
+  let _ = main_to_ir main (hp,global) in
   let _ = print_module name the_module in
   ()

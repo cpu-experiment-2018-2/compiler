@@ -143,6 +143,11 @@ let rec knormalize (e : Syntax.t) =
   | Const (CFloat x, d) -> (Const (CFloat x, d), TyFloat)
   | Const (CBool x, d) -> (Const (CBool x, d), TyBool)
   | Const (CUnit, d) -> (Const (CUnit, d), TyUnit)
+  (* | Const (CInt x, d) -> (Const (CInt x, d), TyInt) *)
+  (* | Const (CFloat x, d) -> (Const (CFloat x, d), TyFloat) *)
+  (* | Const (CBool x, d) -> (Const (CInt (if x then 1 else 0), d), TyInt) *)
+  (* | Const (CUnit, d) -> (Const (CInt 0, d), TyInt) *)
+
   | Op (Primitive EQ, l, d)
    |Op (Primitive GE, l, d)
    |Op (Primitive GT, l, d)

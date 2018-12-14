@@ -1,6 +1,17 @@
 open Syntax
-let hp = ref 0 
-type t = Arr of int * t | Tup of int * (t list) | Int of int | Float of float [@@deriving show]
+
+external getint : float -> int = "getint"
+let hp = ref 0
+type t = Arr of int * t * int | Tup of int * (t list) | Int of int | Float of float [@@deriving show]
+let get_int_value t = 
+    match t with 
+    | Arr (x,_,_) 
+    | Tup(x,_) 
+    | Int(x) -> x
+    | Float(x) -> getint x
+
+
+
 
 let (res: t VarMap.t ref) = ref VarMap.empty 
 
@@ -14,7 +25,7 @@ let rec alloc x =
     | Const (CFloat x , d) -> Float(x)
     | Const (CBool x , d) -> Int(if x then 1 else 0)
     | Op(ArrayGet _, [x;y],d) -> 
-            let Arr (x,init) = VarMap.find x !res in init 
+            let Arr (x,init,_) = VarMap.find x !res in init 
     | Let (name, u, v, d)  -> 
             let u = alloc u in
             let _ = res := VarMap.add name u !res in
@@ -23,7 +34,7 @@ let rec alloc x =
     (* | App (f, [x;y],d) ->  *)
             let Int(len) = VarMap.find x (!res) in
             let y = VarMap.find y (!res) in
-            let v = (Arr(!hp,y)) in
+            let v = (Arr(!hp,y,len)) in
             let _ = hp:= !hp + len in
             v
     | Tuple (l, d) -> 

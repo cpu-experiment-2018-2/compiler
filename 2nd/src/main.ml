@@ -1,6 +1,6 @@
 open Virtual
 
-let hp  = 1
+let hp  = 2
 let global_name = ref "g.ml"
 
 let x86 = ref false
@@ -25,7 +25,7 @@ let show_afeter_lambda_lifting = ref false
 
 let show_optimized = ref false
 
-let show_closure = ref false
+let show_closure = ref false 
 
 let show_virtual = ref false
 
@@ -48,7 +48,7 @@ let lexbuf oc l =
   let g = Knormal.f g in
    HpAlloc.f hp g 
   else
-      (0,Syntax.VarMap.empty)
+      (hp,Syntax.VarMap.empty)
   in
  (* end global *)
   let _ = print_newline () in
@@ -75,7 +75,7 @@ let lexbuf oc l =
 
   let p = Closure.f p opt_after_closure in
   let _ = print_string "closure conversion succeed\n" in
-  (* let _ = if !show_closure then print_string (Closure.show (fst p)) else () in  *)
+  let _ = if !show_closure then List.iter (fun x -> Printf.printf "%s \n"(Closure.show_l x)) (snd p)else () in 
   (* let _ = if !show_closure then Closure.myprint (fst p) "" else () in *)
   if !x86 then
     let _ = print_string "Target architecture : x86-64\n" in
