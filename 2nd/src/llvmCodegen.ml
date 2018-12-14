@@ -34,18 +34,22 @@ let type_to_lltype = function
   | TyTuple _ | TyArray _ -> pointer_type i32_type
   | TyVar x -> i32_type
 
-let incre_ptr_and_cast ptr destty arr =
+let incre_ptr_and_cast ptr destty idx =
   let type_to_lltype2 x = type_to_lltype (if x = TyBool then TyInt else x) in
-  let ptr =
-    build_bitcast ptr (pointer_type i8_type) (Syntax.genvar ()) builder
-  in
-  let ptr = build_in_bounds_gep ptr arr (Syntax.genvar ()) builder in
-  let ptr =
-    build_bitcast ptr
-      (pointer_type (type_to_lltype2 destty))
-      (Syntax.genvar ()) builder
-  in
+  let ptr = build_ptrtoint ptr i32_type (Syntax.genvar()) builder in
+  let ptr = build_add ptr idx (Syntax.genvar()) builder in
+  let ptr = build_inttoptr ptr (pointer_type (type_to_lltype2 destty))  (Syntax.genvar()) builder in
   ptr
+  (* let ptr = *)
+  (*   build_bitcast ptr (pointer_type i8_type) (Syntax.genvar ()) builder *)
+  (* in *)
+  (* let ptr = build_in_bounds_gep ptr arr (Syntax.genvar ()) builder in *)
+  (* let ptr = *)
+  (*   build_bitcast ptr *)
+  (*     (pointer_type (type_to_lltype2 destty)) *)
+  (*     (Syntax.genvar ()) builder *)
+  (* in *)
+  (* ptr *)
 
 type name = Syntax.var [@@deriving show]
 
@@ -135,7 +139,7 @@ let const_to_llvalue dest = function
   | CUnit -> nop ()
 
 let find x =
-  let _ = Printf.printf "%s\n" x.name in
+  (* let _ = Printf.printf "%s\n" x.name in *)
   match Hashtbl.find_opt env x.name with
   | Some y -> y
   | None -> Hashtbl.find env_constant x.name
@@ -212,7 +216,7 @@ and to_llvalue dest x =
   | C y -> const_to_llvalue dest y
   | Var x -> find x
   | Store (ptr, idx, v) ->
-      let arr = [|find idx|] in
+      let arr = find idx in
       let v_ = Syntax.genvar () in
       let v =
         match v.ty with
@@ -224,7 +228,7 @@ and to_llvalue dest x =
       (* let x = build_in_bounds_gep (find ptr) arr a builder in *)
       build_store v x builder
   | Load (ptr, idx) ->
-      let arr = [|find idx|] in
+      let arr = find idx in
       let v_ = Syntax.genvar () in
       let x = incre_ptr_and_cast (find ptr) destty arr in
       let v = build_load x (Syntax.genvar ()) builder in
@@ -265,9 +269,9 @@ and to_llvalue dest x =
   | Op (Primitive Neg, [x]) -> unary build_neg x
   | Op (Primitive FNeg, [x]) -> unary build_fneg x
   | Call (f, args) ->
-      let _ =
-        Printf.printf "call %s -> %s ty=%s\n" f.name dest (Type.show f.ty)
-      in
+      (* let _ = *)
+      (*   Printf.printf "call %s -> %s ty=%s\n" f.name dest (Type.show f.ty) *)
+      (* in *)
       let (TyFun (_, ret)) = f.ty in
       let (Some fv) = lookup_function f.name the_module in
       if f.name = "create_array" then
@@ -284,7 +288,7 @@ and to_llvalue dest x =
           (Array.of_list (List.map find (filter_unit args)))
           dest builder
   | If (cmp, x, y, e1, e2, ty) ->
-      let _ = Printf.printf "cmp %s %s -> dest %s\n" x.name y.name dest in
+      (* let _ = Printf.printf "cmp %s %s -> dest %s\n" x.name y.name dest in *)
       let cond_val = gencond x y cmp ty in
       let start_bb = insertion_block builder in
       let the_function = block_parent start_bb in
@@ -341,17 +345,17 @@ let fundef_proto fd =
   ()
 
 let fundef_to_ir fd =
-  let _ = Printf.printf "define %s\n" fd.f.name in
+  (* let _ = Printf.printf "define %s\n" fd.f.name in *)
   let args = List.map (fun x -> x.ty) fd.args in
   let (TyFun (_, ret)) = fd.f.ty in
   let (Some f) = lookup_function fd.f.name the_module in
   let body = closure_to_ir fd.body in
-  let _ = List.iter (fun x -> Printf.printf "%s " x.name) fd.args in
-  let _ =
-    Printf.printf "%s %d %d\n" fd.f.name
-      (Array.length (params f))
-      (List.length (filter_unit fd.args))
-  in
+  (* let _ = List.iter (fun x -> Printf.printf "%s " x.name) fd.args in *)
+  (* let _ = *)
+  (*   Printf.printf "%s %d %d\n" fd.f.name *)
+  (*     (Array.length (params f)) *)
+  (*     (List.length (filter_unit fd.args)) *)
+  (* in *)
   let _ =
     Array.iter2
       (fun a n -> set_value_name n a ; Hashtbl.add env n a)
@@ -361,7 +365,8 @@ let fundef_to_ir fd =
   let bb = append_block context "entry" f in
   let _ = position_at_end bb builder in
   let value = codegen' body (Ret ret) in
-  dump_value value
+  ()
+  (* dump_value value *)
 
 let main_to_ir main (hp,global) =
   let main = closure_to_ir main in

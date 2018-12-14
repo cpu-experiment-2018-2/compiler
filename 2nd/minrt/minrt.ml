@@ -17,6 +17,7 @@ let rec fisneg x = x < 0.0 in
 let rec fispos x = x > 0.0 in
 let rec fiszero x = x = 0.0 in 
 let rec fless x y = x < y in
+(* let rec floor x = float_of_int(int_of_float(x-.0.5)) in *)
 let rec sin x = 
     let flag = if x >= 0.0 then 1.0 else -1.0 in
     let x = flag *. x in
@@ -2348,8 +2349,8 @@ let rec rt size_x size_y =
  scan_pitch.(0) <- 128.0 /. float_of_int size_x;
  let prev = create_pixelline () in
  let cur  = create_pixelline () in
- let next = create_pixelline () in
- read_parameter();
+ let next = create_pixelline () in 
+ read_parameter() ;
  write_ppm_header ();
  init_dirvecs();
  veccpy (d_vec light_dirvec) light;
@@ -2360,6 +2361,6 @@ let rec rt size_x size_y =
 )
 in
 
-let _ = rt 512 512
+let _ = rt 128 128
 
 in 0
