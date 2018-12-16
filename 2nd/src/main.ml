@@ -8,6 +8,8 @@ let x86 = ref false
 let fname = ref ""
 
 let llvm_ir = ref false
+let noopt = ref false
+
 
 let allow_partial = ref false
 
@@ -69,7 +71,7 @@ let lexbuf oc l =
   (* let p = LambdaLifting.f p in *)
   let p = Alpha.f p in
   let _ = if !show_afeter_lambda_lifting then Knormal.myprint p 0 else () in
-  let p = optimtime 100 p in
+  let p = if !noopt then p else optimtime 100 p in
   let _ = print_string "\noptimized\n" in
   let _ = if !show_optimized then Knormal.myprint p 0 else () in
 
@@ -111,7 +113,9 @@ let _ = print_string "usage: ./compiler filename\n\toutputed to filename.s\n"
 let analyze_cmd () =
   x86 := Array.exists (fun x -> x = "-x86") Sys.argv ;
   allow_partial := Array.exists (fun x -> x = "-allow-partial") Sys.argv ;
-  llvm_ir := Array.exists (fun x -> x = "-llvm-ir") Sys.argv
+  llvm_ir := Array.exists (fun x -> x = "-llvm-ir") Sys.argv;
+  noopt := Array.exists (fun x -> x = "-noopt") Sys.argv
+
 
 let _ =
   let _ = analyze_cmd () in
