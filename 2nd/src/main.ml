@@ -5,6 +5,8 @@ let global_name = ref "g.ml"
 
 let x86 = ref false
 
+let ssa_form = ref true
+
 let fname = ref ""
 
 let llvm_ir = ref false
@@ -86,6 +88,8 @@ let lexbuf oc l =
     ()
   else if !llvm_ir then
     LlvmCodegen.f !fname p g
+  else if !ssa_form then
+   Ssa.g p
   else
     let _ = print_string "Target architecture : elmo\n" in
     let p, func = Scheduling.h p in

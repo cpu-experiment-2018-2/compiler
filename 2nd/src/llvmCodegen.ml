@@ -3,6 +3,7 @@ open Syntax
 open HpAlloc
 open Closure
 open Type
+open IR
 
 let context = global_context ()
 
@@ -51,75 +52,6 @@ let incre_ptr_and_cast ptr destty idx =
   (* in *)
   (* ptr *)
 
-type name = Syntax.var [@@deriving show]
-
-type cmpty = F | I [@@deriving show]
-
-type op = Syntax.op [@@deriving show]
-
-let alpha ty =
-  let a = Syntax.alpha () in
-  {a with ty}
-
-type u =
-  | C of Syntax.c
-  | Var of name
-  | Op of op * name list
-  | Load of name * name
-  | Store of name * name * name
-  | If of Knormal.cmp * name * name * v * v * cmpty
-  | Call of name * name list
-[@@deriving show]
-
-and v = Ans of u | Let of name * u * v
-
-let rec concat var e1 e2 =
-  match e1 with
-  | Ans x -> Let (var, x, e2)
-  | Let (y, t1, t2) -> Let (y, t1, concat var t2 e2)
-
-let rec closure_to_ir x =
-  match x with
-  | Const (CInt x, d) -> Ans (C (CInt x))
-  | Const (CFloat x, d) -> Ans (C (CFloat x))
-  | Const (CBool x, d) -> Ans (C (CBool x))
-  | Const (CUnit, d) -> Ans (C CUnit)
-  | Op (ArrayGet _, [x; y], d) -> Ans (Load (x, y))
-  | Op (ArrayPut _, [x; y; z], d) -> Ans (Store (x, y, z))
-  | Op (Projection (idx, _, _), [x], d) ->
-      let a = alpha TyInt in
-      Let (a, C (CInt idx), Ans (Load (x, a)))
-  | Tuple (l, d) ->
-      let ty = TyTuple (List.map (fun x -> x.ty) l) in
-      let base = alpha (TyTuple (List.map (fun x -> x.ty) l)) in
-      let hoge =
-        snd
-          (List.fold_right
-             (fun p (idx, acc) ->
-               let a = alpha TyUnit in
-               let idx' = alpha TyInt in
-               ( idx - 1
-               , Let (idx', C (CInt idx), Let (a, Store (base, idx', p), acc))
-               ) )
-             l
-             (List.length l - 1, Ans (Var base)))
-      in
-      let f = Syntax.alpha () in
-      let f = {f with name= "create_tuple"; ty= TyFun ([TyInt], TyTuple [])} in
-      let a = alpha TyInt in
-      Let (a, C (CInt (List.length l)), Let (base, Call (f, [a]), hoge))
-  | Op (op, l, d) -> Ans (Op (op, l))
-  | If (cmp, x, y, e1, e2, d) -> (
-    match x.ty with
-    | Type.TyBool | Type.TyInt ->
-        Ans (If (cmp, x, y, closure_to_ir e1, closure_to_ir e2, I))
-    | Type.TyFloat ->
-        Ans (If (cmp, x, y, closure_to_ir e1, closure_to_ir e2, F))
-    | _ -> failwith "equality is only bool and int" )
-  | Let (var, e1, e2, d) -> concat var (closure_to_ir e1) (closure_to_ir e2)
-  | Var (var, d) -> Ans (Var var)
-  | AppDir (var, ys, d) -> Ans (Call (var, ys))
-  | _ -> failwith (Closure.show x)
 
 let fzero = const_float float_type 0.0
 
@@ -378,8 +310,8 @@ let main_to_ir main (hp,global) =
   let _ = position_at_end bb builder in
   let ptr = const_inttoptr (const_int i32_type 1) (pointer_type i32_type) in
   let _ = ignore (build_store (const_int i32_type hp) ptr builder) in
-  let Some(fv) = lookup_function "set_sp" the_module  in
-  (* let _ = build_call fv (Array.of_list [(const_int i32_type 200000)]) ("") builder  in *)
+  let Some(fv) = lookup_function "set_hp" the_module  in
+  (* let _ = build_call fv (Array.of_list [(const_int i32_type hp)]) ("") builder  in  *)
   let _ =
     VarMap.iter
       (fun key v ->
