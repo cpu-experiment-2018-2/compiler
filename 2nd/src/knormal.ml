@@ -1,7 +1,15 @@
 open Syntax
 open Type
 
-type cmp = LE | EQ | LT [@@deriving show]
+type cmp = LE | EQ | LT | GT | GE | NE [@@deriving show]
+let opposite = function
+    | LE -> GT
+    | LT -> GE
+    | GT -> LE
+    | GE -> LT
+    | NE -> EQ
+    | EQ -> NE
+
 
 type 'a u =
   | Const of c * 'a

@@ -5,13 +5,11 @@ let global_name = ref "g.ml"
 
 let x86 = ref false
 
-let ssa_form = ref true
+let ssa = ref true
 
 let fname = ref ""
 
-let llvm_ir = ref false
-
-let allow_partial = ref false
+let llvm_ir = ref false let allow_partial = ref false
 
 let show_ast = ref false
 
@@ -74,10 +72,12 @@ let lexbuf oc l =
   let p = optimtime 100 p in
   let _ = print_string "\noptimized\n" in
   let _ = if !show_optimized then Knormal.myprint p 0 else () in
-
   let p = Closure.f p opt_after_closure in
+  (* let p = Loop.f p in *)
   let _ = print_string "closure conversion succeed\n" in
-  let _ = if !show_closure then List.iter (fun x -> Printf.printf "%s \n"(Closure.show_l x)) (snd p)else () in 
+  (* let _ = if !show_closure then List.iter (fun x -> Printf.printf "%s \n"(Closure.show_l x)) (snd p)else () in  *)
+  let _ = if !show_closure then List.iter (fun x -> Closure.myprint Closure.(x.body) "") (snd p)else () in 
+
   (* let _ = if !show_closure then Closure.myprint (fst p) "" else () in *)
   if !x86 then
     let _ = print_string "Target architecture : x86-64\n" in
@@ -87,9 +87,13 @@ let lexbuf oc l =
     let p = X86emit.f oc p in
     ()
   else if !llvm_ir then
-    LlvmCodegen.f !fname p g
-  else if !ssa_form then
-   Ssa.g p
+    let p = IR.f p in
+    LlvmCodegen.f !fname p g 
+  else if !ssa then
+    let p = IR.f p in
+    let p = EliminateTailRecCall.f p in
+    (* let _ = print_string (IR.show_prog p) in *)
+    ()
   else
     let _ = print_string "Target architecture : elmo\n" in
     let p, func = Scheduling.h p in
@@ -114,8 +118,10 @@ let _ = print_string "usage: ./compiler filename\n\toutputed to filename.s\n"
 
 let analyze_cmd () =
   x86 := Array.exists (fun x -> x = "-x86") Sys.argv ;
+  ssa := Array.exists (fun x -> x = "-ssa") Sys.argv ;
   allow_partial := Array.exists (fun x -> x = "-allow-partial") Sys.argv ;
   llvm_ir := Array.exists (fun x -> x = "-llvm-ir") Sys.argv
+
 
 let _ =
   let _ = analyze_cmd () in

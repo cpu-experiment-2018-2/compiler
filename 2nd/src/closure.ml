@@ -12,6 +12,7 @@ type 'a u =
   | AppCls of var * var list * 'a
   | AppDir of var * var list * 'a
   | Tuple of var list * 'a
+  | While of cmp * var * var * ( var * var ) list * 'a u * 'a u
 [@@deriving show]
 
 and 'a fundef = {f: var; args: var list; fv: var list; body: 'a u; info: 'a}
@@ -60,6 +61,11 @@ let rec myprint e level =
   | Closure (x, e) ->
       print_string "Closure\n" ;
       myprint e ("  " ^ level)
+  | While (cmp,x,y,vars,e1,e2) -> 
+      Printf.printf "While(%s %s %s) { \n" x.name (Knormal.show_cmp cmp) y.name  ;
+      myprint e1 ("  " ^ level);
+      print_string "}\n";
+      myprint e2 level
 
 let rec fv = function
   | Const _ -> VarSet.empty

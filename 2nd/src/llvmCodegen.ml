@@ -1,7 +1,6 @@
 open Llvm
 open Syntax
 open HpAlloc
-open Closure
 open Type
 open IR
 
@@ -41,16 +40,6 @@ let incre_ptr_and_cast ptr destty idx =
   let ptr = build_add ptr idx (Syntax.genvar()) builder in
   let ptr = build_inttoptr ptr (pointer_type (type_to_lltype2 destty))  (Syntax.genvar()) builder in
   ptr
-  (* let ptr = *)
-  (*   build_bitcast ptr (pointer_type i8_type) (Syntax.genvar ()) builder *)
-  (* in *)
-  (* let ptr = build_in_bounds_gep ptr arr (Syntax.genvar ()) builder in *)
-  (* let ptr = *)
-  (*   build_bitcast ptr *)
-  (*     (pointer_type (type_to_lltype2 destty)) *)
-  (*     (Syntax.genvar ()) builder *)
-  (* in *)
-  (* ptr *)
 
 
 let fzero = const_float float_type 0.0
@@ -268,21 +257,20 @@ let fundef_global_proto =
   List.iter f Typing.builtin_function'
 
 let fundef_proto fd =
-  let args = List.map (fun x -> x.ty) (filter_unit fd.args) in
-  let (TyFun (_, ret)) = fd.f.ty in
+  let args = List.map (fun x -> x.ty) (filter_unit fd.args_ir) in
+  let (TyFun (_, ret)) = fd.f_ir.ty in
   let args = Array.of_list (List.map type_to_lltype args) in
   let ret = type_to_lltype ret in
   let ft = function_type ret args in
-  let f = declare_function fd.f.name ft the_module in
+  let f = declare_function fd.f_ir.name ft the_module in
   ()
 
 let fundef_to_ir fd =
-  (* let _ = Printf.printf "define %s\n" fd.f.name in *)
-  let args = List.map (fun x -> x.ty) fd.args in
-  let (TyFun (_, ret)) = fd.f.ty in
-  let (Some f) = lookup_function fd.f.name the_module in
-  let body = closure_to_ir fd.body in
-  (* let _ = List.iter (fun x -> Printf.printf "%s " x.name) fd.args in *)
+  let args = List.map (fun x -> x.ty) fd.args_ir in
+  let (TyFun (_, ret)) = fd.f_ir.ty in
+  let (Some f) = lookup_function fd.f_ir.name the_module in
+  let body = fd.body_ir in
+  (* let _ = List.iter (fun x -> Printf.printf "%s " x.name) fd.args_ir in *)
   (* let _ = *)
   (*   Printf.printf "%s %d %d\n" fd.f.name *)
   (*     (Array.length (params f)) *)
@@ -292,7 +280,7 @@ let fundef_to_ir fd =
     Array.iter2
       (fun a n -> set_value_name n a ; Hashtbl.add env n a)
       (params f)
-      (Array.of_list (List.map (fun x -> x.name) (filter_unit fd.args)))
+      (Array.of_list (List.map (fun x -> x.name) (filter_unit fd.args_ir)))
   in
   let bb = append_block context "entry" f in
   let _ = position_at_end bb builder in
@@ -301,7 +289,7 @@ let fundef_to_ir fd =
   (* dump_value value *)
 
 let main_to_ir main (hp,global) =
-  let main = closure_to_ir main in
+  (* let main = closure_to_ir main in *)
   let m = Array.make 0 i32_type in
   let ft = function_type void_type m in
   let f = declare_function "main" ft the_module in
