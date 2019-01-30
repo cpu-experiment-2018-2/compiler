@@ -10,7 +10,7 @@ exception UnifyError of string * string
 
 let empty = []
 
-let binded =  ref VarSet.empty
+let binded = ref VarSet.empty
 
 let get_eq l r d = {left= l; right= r; debug= d}
 
@@ -125,11 +125,10 @@ let builtin_function' =
   ; ("int_of_float", ([], [TyFloat], TyInt))
   ; ( "create_array"
     , let s = Type.genvar () in
-      ([s], [TyInt; TyVar s], TyArray (TyVar s)) ) 
+      ([s], [TyInt; TyVar s], TyArray (TyVar s)) )
   ; ( "create_tuple"
     , let s = Type.genvar () in
-    ([s], [TyInt], TyTuple []) ) ]
-
+      ([s], [TyInt], TyTuple []) ) ]
 
 let builtin_vars =
   List.map
@@ -150,7 +149,8 @@ let instanciate_builtin name varenv =
       let a, b, c = List.assoc name builtin_function' in
       TyFun (b, c)
     with _ ->
-      if List.exists (fun x -> x.name = name) varenv then TyInt else TyVar(Type.genvar()) )
+      if List.exists (fun x -> x.name = name) varenv then TyInt
+      else TyVar (Type.genvar ()) )
 
 (* else raise (TypingError ("unbound " ^ name)) ) *)
 

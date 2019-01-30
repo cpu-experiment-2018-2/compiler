@@ -2,14 +2,24 @@ open Syntax
 open Type
 
 type cmp = LE | EQ | LT | GT | GE | NE [@@deriving show]
-let opposite = function
-    | LE -> GT
-    | LT -> GE
-    | GT -> LE
-    | GE -> LT
-    | NE -> EQ
-    | EQ -> NE
 
+let opposite = function
+  | LE -> GT
+  | LT -> GE
+  | GT -> LE
+  | GE -> LT
+  | NE -> EQ
+  | EQ -> NE
+
+let gyaku = function
+  | LE -> GE
+  | LT -> GT
+  | GT -> GT
+  | GE -> LE
+  | NE -> NE
+  | EQ -> EQ
+
+let lower x = match x with NE -> GE | _ -> x
 
 type 'a u =
   | Const of c * 'a
@@ -155,7 +165,6 @@ let rec knormalize (e : Syntax.t) =
   (* | Const (CFloat x, d) -> (Const (CFloat x, d), TyFloat) *)
   (* | Const (CBool x, d) -> (Const (CInt (if x then 1 else 0), d), TyInt) *)
   (* | Const (CUnit, d) -> (Const (CInt 0, d), TyInt) *)
-
   | Op (Primitive EQ, l, d)
    |Op (Primitive GE, l, d)
    |Op (Primitive GT, l, d)

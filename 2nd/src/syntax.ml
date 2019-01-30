@@ -90,6 +90,7 @@ type t = debug u [@@deriving show]
 
 module M = Map.Make (struct
   type t = string
+
   let compare x y = compare x y
 end)
 
@@ -115,8 +116,6 @@ module VarMap2 = Map.Make (struct
 
   let compare = compare_g
 end)
-
-
 
 module VarSet2 = Set.Make (struct
   type t = g

@@ -1,15 +1,20 @@
 open Virtual
 
-let hp  = 2
+let hp = 2
+
 let global_name = ref "g.ml"
 
 let x86 = ref false
 
-let ssa = ref true
+let type_check = ref true
+
+let ssa = ref false
 
 let fname = ref ""
 
-let llvm_ir = ref false let allow_partial = ref false
+let llvm_ir = ref false
+
+let allow_partial = ref false
 
 let show_ast = ref false
 
@@ -25,7 +30,7 @@ let show_afeter_lambda_lifting = ref false
 
 let show_optimized = ref false
 
-let show_closure = ref false 
+let show_closure = ref false
 
 let show_virtual = ref false
 
@@ -37,20 +42,19 @@ let opt_after_closure p = p
 let rec optimtime x p = if x = 0 then p else optimtime (x - 1) (optimize p)
 
 let lexbuf oc l =
-
   let p = Parser.top_exp Lexer.token l in
- (* global *)
-  let g = if Sys.file_exists !global_name then
-  let ic = open_in !global_name in
-  let l =   (Lexing.from_channel ic) in
-  let g = Parser.top_exp Lexer.token l in
-  let g = Typing.f g in
-  let g = Knormal.f g in
-   HpAlloc.f hp g 
-  else
-      (hp,Syntax.VarMap.empty)
+  (* global *)
+  let g =
+    if Sys.file_exists !global_name then
+      let ic = open_in !global_name in
+      let l = Lexing.from_channel ic in
+      let g = Parser.top_exp Lexer.token l in
+      let g = Typing.f g in
+      let g = Knormal.f g in
+      HpAlloc.f hp g
+    else (hp, Syntax.VarMap.empty)
   in
- (* end global *)
+  (* end global *)
   let _ = print_newline () in
   let _ = print_string "parse succeed\n" in
   let _ = if !show_ast then print_string (Syntax.show p) else () in
@@ -69,15 +73,19 @@ let lexbuf oc l =
   (* let p = LambdaLifting.f p in *)
   let p = Alpha.f p in
   let _ = if !show_afeter_lambda_lifting then Knormal.myprint p 0 else () in
-  let p = optimtime 100 p in
+  let p = optimtime 0 p in
   let _ = print_string "\noptimized\n" in
   let _ = if !show_optimized then Knormal.myprint p 0 else () in
   let p = Closure.f p opt_after_closure in
+  let _ = if !type_check then Closure_typecheck.f p else [] in
   (* let p = Loop.f p in *)
   let _ = print_string "closure conversion succeed\n" in
   (* let _ = if !show_closure then List.iter (fun x -> Printf.printf "%s \n"(Closure.show_l x)) (snd p)else () in  *)
-  let _ = if !show_closure then List.iter (fun x -> Closure.myprint Closure.(x.body) "") (snd p)else () in 
-
+  let _ =
+    if !show_closure then
+      List.iter (fun x -> Closure.myprint Closure.(x.body) "") (snd p)
+    else ()
+  in
   (* let _ = if !show_closure then Closure.myprint (fst p) "" else () in *)
   if !x86 then
     let _ = print_string "Target architecture : x86-64\n" in
@@ -87,13 +95,27 @@ let lexbuf oc l =
     let p = X86emit.f oc p in
     ()
   else if !llvm_ir then
+    let hp, g = g in
+    let g =
+      Syntax.VarMap.fold
+        (fun a b c -> IR.VarMap.add (IR.rename a) b c)
+        g IR.VarMap.empty
+    in
     let p = IR.f p in
-    LlvmCodegen.f !fname p g 
+    (* let p = EliminateTailRecCall.f p in *)
+    (* let p = WhileToFor.f p in *)
+    (* let p = LoopUnrolling.f p in  *)
+    let _ = print_string (IR.show_prog p) in
+    LlvmCodegen.f !fname p (hp, g)
   else if !ssa then
+    let _ = print_string "hogeufga" in
     let p = IR.f p in
+    (* Pararell.f p; *)
     let p = EliminateTailRecCall.f p in
-    (* let _ = print_string (IR.show_prog p) in *)
+    let p = WhileToFor.f p in
     ()
+    (* let p = LoopUnrolling.f p in *)
+    (* let _ = print_string (IR.show_prog p) in *)
   else
     let _ = print_string "Target architecture : elmo\n" in
     let p, func = Scheduling.h p in
@@ -122,7 +144,6 @@ let analyze_cmd () =
   allow_partial := Array.exists (fun x -> x = "-allow-partial") Sys.argv ;
   llvm_ir := Array.exists (fun x -> x = "-llvm-ir") Sys.argv
 
-
 let _ =
   let _ = analyze_cmd () in
   let filename = Sys.argv.(1) in
@@ -131,4 +152,6 @@ let _ =
   let _ = fname := oname in
   let oc = open_out oname in
   let _ = lexbuf oc (Lexing.from_channel ic) in
-  print_string ("success\nassembly is outputed to " ^ oname)
+  ()
+
+(* print_string ("success\nassembly is outputed to " ^ oname) *)

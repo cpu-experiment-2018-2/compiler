@@ -2,6 +2,7 @@ open Syntax
 open Type
 open Knormal
 open HpAlloc
+
 type 'a u =
   | Const of c * 'a
   | Op of op * var list * 'a
@@ -12,7 +13,6 @@ type 'a u =
   | AppCls of var * var list * 'a
   | AppDir of var * var list * 'a
   | Tuple of var list * 'a
-  | While of cmp * var * var * ( var * var ) list * 'a u * 'a u
 [@@deriving show]
 
 and 'a fundef = {f: var; args: var list; fv: var list; body: 'a u; info: 'a}
@@ -61,11 +61,12 @@ let rec myprint e level =
   | Closure (x, e) ->
       print_string "Closure\n" ;
       myprint e ("  " ^ level)
-  | While (cmp,x,y,vars,e1,e2) -> 
-      Printf.printf "While(%s %s %s) { \n" x.name (Knormal.show_cmp cmp) y.name  ;
-      myprint e1 ("  " ^ level);
-      print_string "}\n";
-      myprint e2 level
+
+(* | While (cmp, x, y, vars, e1, e2) -> *)
+(*     Printf.printf "While(%s %s %s) { \n" x.name (Knormal.show_cmp cmp) y.name ; *)
+(*     myprint e1 ("  " ^ level) ; *)
+(*     print_string "}\n" ; *)
+(*     myprint e2 level *)
 
 let rec fv = function
   | Const _ -> VarSet.empty
@@ -81,10 +82,12 @@ let rec fv = function
   | Tuple (x, _) -> VarSet.of_list x
 
 type t = debug u [@@deriving show]
+
 type l = debug fundef [@@deriving show]
 
-
 let (toplevel : debug fundef list ref) = ref []
+
+let toplevel_find y = List.find (fun x -> x.f.name = y.name) !toplevel
 
 let add_toplevel fundef = toplevel := fundef :: !toplevel
 
@@ -104,7 +107,10 @@ let f =
         let toplevel_backup = !toplevel in
         let known' = VarSet.add f.f known in
         let e1' = closure_conversion' known' f.body in
-        let zs = VarSet.diff (fv e1') (VarSet.union(VarSet.of_list f.args) !Typing.binded) in
+        let zs =
+          VarSet.diff (fv e1')
+            (VarSet.union (VarSet.of_list f.args) !Typing.binded)
+        in
         let known', e1' =
           if VarSet.is_empty zs then (known', e1')
           else (
@@ -113,7 +119,9 @@ let f =
             (known, e1') )
         in
         let fv' =
-          VarSet.elements (VarSet.diff (fv e1') (VarSet.union (VarSet.of_list f.args) !Typing.binded))
+          VarSet.elements
+            (VarSet.diff (fv e1')
+               (VarSet.union (VarSet.of_list f.args) !Typing.binded))
         in
         let _ =
           add_toplevel {f= f.f; args= f.args; fv= fv'; body= e1'; info= f.info}

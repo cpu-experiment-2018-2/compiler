@@ -41,7 +41,9 @@ let rec size e =
 let offset idx l =
   let sum = ref 0 in
   let y = Array.of_list l in
-  for i = 0 to idx - 1 do sum := !sum + size y.(i) done ;
+  for i = 0 to idx - 1 do
+    sum := !sum + size y.(i)
+  done ;
   !sum
 
 let rec calc idx ty =
@@ -52,7 +54,7 @@ let rec calc idx ty =
  *)
 let rec flatten_type e =
   match e with
-  | TyInt | TyUnit | TyFloat | TyBool | TyVar(_) | TyFun (_)-> e
+  | TyInt | TyUnit | TyFloat | TyBool | TyVar _ | TyFun _ -> e
   | TyArray t -> TyArray (flatten_type t)
   | TyTuple t ->
       let ts = List.map flatten_type t in
@@ -65,8 +67,9 @@ let rec tuple_flatten e =
   | Op (Projection (i, all, ty), [x], d) ->
       let i, all = (calc i x.ty, size x.ty) in
       Op (Projection (i, all, ty), [x], d)
-  | If(cmp,x,y,e1,e2,d) -> If(cmp,x,y,tuple_flatten e1, tuple_flatten e2,d)
-  | Let(var,e1,e2,d) -> Let(var,tuple_flatten e1,tuple_flatten e2,d)
+  | If (cmp, x, y, e1, e2, d) ->
+      If (cmp, x, y, tuple_flatten e1, tuple_flatten e2, d)
+  | Let (var, e1, e2, d) -> Let (var, tuple_flatten e1, tuple_flatten e2, d)
   | Tuple (l, d) ->
       let f, acc, lis =
         List.fold_left
@@ -102,6 +105,6 @@ let rec tuple_flatten e =
           l
       in
       f (Tuple (lis, d))
-  | Op(_) | Const _ | Closure _ |AppCls(_) | AppDir(_) | Var(_)-> e
+  | Op _ | Const _ | Closure _ | AppCls _ | AppDir _ | Var _ -> e
 
 let f = tuple_flatten

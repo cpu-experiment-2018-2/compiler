@@ -577,15 +577,15 @@ let rec top (main, toplevel) =
   List.concat li
 
 let emit li stack_start memory_start oc =
-  let _ = Printf.fprintf oc "return:\n \tend\n" in
-  let _ = Printf.fprintf oc "init:\n" in
-  let _ = Printf.fprintf oc "\tlil %%lr,return\n" in
-  let _ = Printf.fprintf oc "\tli %%r0,%d\n" 0 in
-  let _ = Printf.fprintf oc "\tli %%fp,%d\n" stack_start in
-  let _ = Printf.fprintf oc "\tli %%sp,%d\n" stack_start in
-  let _ = Printf.fprintf oc "\tli %%r3,%d\n" memory_start in
-  let _ = Printf.fprintf oc "\tstore %%r3, %%r0,%d\n" 0 in
-  let _ = Printf.fprintf oc "\tjump main\n" in
+  (* let _ = Printf.fprintf oc "return:\n \tend\n" in *)
+  (* let _ = Printf.fprintf oc "init:\n" in *)
+  (* let _ = Printf.fprintf oc "\tlil %%lr,return\n" in *)
+  (* let _ = Printf.fprintf oc "\tli %%r0,%d\n" 0 in *)
+  (* let _ = Printf.fprintf oc "\tli %%fp,%d\n" stack_start in *)
+  (* let _ = Printf.fprintf oc "\tli %%sp,%d\n" stack_start in *)
+  (* let _ = Printf.fprintf oc "\tli %%r3,%d\n" memory_start in *)
+  (* let _ = Printf.fprintf oc "\tstore %%r3, %%r0,%d\n" 0 in *)
+  (* let _ = Printf.fprintf oc "\tjump main\n" in *)
   let p = List.map reg2regstr li in
   let ch = record p in
   let _ = List.iter (emit_sugar oc ch) p in

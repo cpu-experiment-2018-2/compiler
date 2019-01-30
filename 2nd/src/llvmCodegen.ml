@@ -36,17 +36,22 @@ let type_to_lltype = function
 
 let incre_ptr_and_cast ptr destty idx =
   let type_to_lltype2 x = type_to_lltype (if x = TyBool then TyInt else x) in
-  let ptr = build_ptrtoint ptr i32_type (Syntax.genvar()) builder in
-  let ptr = build_add ptr idx (Syntax.genvar()) builder in
-  let ptr = build_inttoptr ptr (pointer_type (type_to_lltype2 destty))  (Syntax.genvar()) builder in
+  let ptr = build_ptrtoint ptr i32_type (Syntax.genvar ()) builder in
+  let ptr = build_add ptr idx (Syntax.genvar ()) builder in
+  let ptr =
+    build_inttoptr ptr
+      (pointer_type (type_to_lltype2 destty))
+      (Syntax.genvar ()) builder
+  in
   ptr
-
 
 let fzero = const_float float_type 0.0
 
 let i32zero = const_int i32_type 0
 
 let i1zero = const_int i1_type 0
+
+let ptrzero = const_pointer_null i32_type
 
 let nop () = build_add i32zero i32zero "" builder
 
@@ -69,11 +74,17 @@ let cmp_to_Icmp = function
   | Knormal.LE -> Icmp.Sle
   | Knormal.LT -> Icmp.Slt
   | Knormal.EQ -> Icmp.Eq
+  | Knormal.GE -> Icmp.Sge
+  | Knormal.GT -> Icmp.Sgt
+  | Knormal.NE -> Icmp.Ne
 
 let cmp_to_Fcmp = function
   | Knormal.LE -> Fcmp.Ole
   | Knormal.LT -> Fcmp.Olt
   | Knormal.EQ -> Fcmp.Oeq
+  | Knormal.GE -> Fcmp.Oge
+  | Knormal.GT -> Fcmp.Ogt
+  | Knormal.NE -> Fcmp.One
 
 let gencond x y cmp ty =
   let lhs = find x in
@@ -91,7 +102,7 @@ let rec codegen_ret x ty =
   | C CUnit -> build_ret_void builder
   | Var x -> build_ret (find x) builder
   | _ -> (
-      let a = Syntax.alpha () in
+      let a = IR.alpha () in
       let a = {a with ty} in
       match ty with
       | TyUnit -> codegen' (Let (a, x, Ans (C CUnit))) (Ret ty)
@@ -107,11 +118,11 @@ and codegen' x ret_type =
     match ret_type with
     | Ret ty -> codegen_ret u ty
     | Void ->
-        let a = Syntax.alpha () in
+        let a = IR.alpha () in
         let a = {a with ty= TyUnit; name= ""} in
         codegen a u
     | Value ty ->
-        let a = Syntax.alpha () in
+        let a = IR.alpha () in
         let a = {a with ty} in
         codegen a u )
   | Let (n, e1, e2) ->
@@ -208,6 +219,73 @@ and to_llvalue dest x =
         build_call fv
           (Array.of_list (List.map find (filter_unit args)))
           dest builder
+  | While (cmp, ty, x, y, pairs1, updates, cont)
+   |For (cmp, ty, x, y, _, pairs1, updates, cont) ->
+      let used = List.map fst pairs1 in
+      let rename =
+        List.fold_left
+          (fun acc a ->
+            let name = a.name ^ "." ^ Syntax.genvar () in
+            VarMap.add a {a with name} acc )
+          VarMap.empty used
+      in
+      (* let start_bb = insertion_block in *)
+      (* let the_function = block_parent start_bb in *)
+      (* let for_start = append_block context "for_start_dummy" the_function in *)
+      (* let _ = position_at_end for_start builder in *)
+      (* let for_body = append_block context "for_body_dummy" the_function in *)
+      (* let pairs' = *)
+      (*   List.map (fun (x, y) -> (IR.find_or rename x, x, y)) pairs1 *)
+      (* in *)
+      (* let _ = *)
+      (*   List.iter *)
+      (*     (fun (x, y, z) -> *)
+      (*       let dummy = match x.ty with | TyBool -> i1zero | TyInt -> i32zero | TyFloat -> fzero | _ -> ptrzero in *)
+      (*       let incoming = [(dummy, start_bb); (dummy, for_body)] in *)
+      (*       let phi = *)
+      (*         if y.ty = TyUnit then nop () *)
+      (*         else build_phi incoming x.name builder *)
+      (*       in *)
+      (*       Hashtbl.add env x.name phi ) *)
+      (*     pairs' *)
+      (* in *)
+      (* let updates' = *)
+      (*   List.map (fun (x, y) -> (IR.find_or rename x, IR.alpha_conv_u rename y)) updates *)
+      (* in *)
+      (* let _ = position_at_end for_body builder in *)
+      (* let _ = *)
+      (*   List.iter (fun (x, y) -> Hashtbl.add env x.name (codegen x y)) updates' *)
+      (* in *)
+      (* let _ = delete_block for_start  in *)
+      (* let for_start' = append_block context "for_start" the_function in *)
+      (* let _ = position_at_end for_start' builder in *)
+      (* let _ = *)
+      (*   List.iter *)
+      (*     (fun (x, y, z) -> *)
+      (*       let incoming = [(find y, start_bb); (find z, for_body)] in *)
+      (*       let phi = *)
+      (*         if y.ty = TyUnit then nop () *)
+      (*         else build_phi incoming x.name builder *)
+      (*       in *)
+      (*       Hashtbl.add env x.name phi ) *)
+      (*     pairs' *)
+      (* in *)
+      (*  *)
+      (* let for_body' = append_block context "for_body" the_function in *)
+      (* let _ = position_at_end for_body' builder in *)
+      (* let _ = *)
+      (*   List.iter (fun (x, y) -> Hashtbl.add env x.name (codegen x y)) updates' in *)
+      (* let _ = build_br for_start' builder in *)
+      (* let _ = delete_block for_body builder in *)
+      (* let _ = position_at_end for_start' builder in *)
+      (* let cont_bb = append_block context "cont" the_function in *)
+      (* let cond_val = gencond (IR.find_or rename x) (IR.find_or rename y) cmp ty in *)
+      (* let  _ = build_cond_br cond_val for_body' cont_bb builder in *)
+      (* let _ = position_at_end start_bb builder in *)
+      (* let _ = build_br for_start' builder in *)
+      (* let _ = position_at_end cont_bb builder in *)
+      let ret = if dest = "" then Void else Value destty in
+      codegen' (IR.alpha_conv_v rename cont) ret
   | If (cmp, x, y, e1, e2, ty) ->
       (* let _ = Printf.printf "cmp %s %s -> dest %s\n" x.name y.name dest in *)
       let cond_val = gencond x y cmp ty in
@@ -286,9 +364,10 @@ let fundef_to_ir fd =
   let _ = position_at_end bb builder in
   let value = codegen' body (Ret ret) in
   ()
-  (* dump_value value *)
 
-let main_to_ir main (hp,global) =
+(* dump_value value *)
+
+let main_to_ir main (hp, global) =
   (* let main = closure_to_ir main in *)
   let m = Array.make 0 i32_type in
   let ft = function_type void_type m in
@@ -298,7 +377,7 @@ let main_to_ir main (hp,global) =
   let _ = position_at_end bb builder in
   let ptr = const_inttoptr (const_int i32_type 1) (pointer_type i32_type) in
   let _ = ignore (build_store (const_int i32_type hp) ptr builder) in
-  let Some(fv) = lookup_function "set_hp" the_module  in
+  let (Some fv) = lookup_function "set_hp" the_module in
   (* let _ = build_call fv (Array.of_list [(const_int i32_type hp)]) ("") builder  in  *)
   let _ =
     VarMap.iter
@@ -326,7 +405,7 @@ let main_to_ir main (hp,global) =
             in
             let len = List.length tup in
             for i = 0 to len - 1 do
-              let _ = Printf.printf "generating %d\n" k  in
+              let _ = Printf.printf "generating %d\n" k in
               let v = vs.(i) in
               let i = i + k in
               let ptr =
@@ -334,8 +413,7 @@ let main_to_ir main (hp,global) =
               in
               let _ = ignore (build_store v ptr builder) in
               ()
-            done 
-              )
+            done )
       global
   in
   let value = codegen' main (Ret TyUnit) in
@@ -359,6 +437,6 @@ let f name (main, functions) (hp, global) =
   in
   let _ = List.iter fundef_proto functions in
   let _ = List.iter fundef_to_ir functions in
-  let _ = main_to_ir main (hp,global) in
+  let _ = main_to_ir main (hp, global) in
   let _ = print_module name the_module in
   ()

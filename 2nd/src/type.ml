@@ -9,6 +9,8 @@ type t =
   | TyVar of int
 [@@deriving show]
 
+let is_array = function TyArray _ -> true | _ -> false
+
 let genvar =
   let r = ref 0 in
   fun () ->

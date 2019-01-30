@@ -65,8 +65,8 @@ type tmp = (Syntax.debug, Syntax.var) u [@@deriving show]
 type t = (Syntax.debug, Syntax.var) v [@@deriving show]
 
 type k = (Syntax.debug, Syntax.g) v [@@deriving show]
-type ku = (Syntax.debug, Syntax.g) u [@@deriving show]
 
+type ku = (Syntax.debug, Syntax.g) u [@@deriving show]
 
 type ('a, 'b) fundef =
   { label: string
@@ -179,5 +179,3 @@ let rec closure_to_virtual' (e : Closure.t) =
                   names
                   (Ans (Var (y, d)), List.length names - 1))) )
   | _ -> failwith (Closure.show e)
-
-

@@ -169,27 +169,28 @@ let g priority e =
         schedule_block () ;
         match u with
         | If (c, x, y, e1, e2, cc, d) ->
-          let f = !tmp in
-          let tmpv = !var_map in
-          let _ = clear () in
-          let e1 = schedule e1 in
-          let _ = clear () in
-          let e2 = schedule e2 in
-          let _ = clear () in
-          let _ = var_map := tmpv in
-          let f =
-            List.fold_right
-              (fun (n, v) acc z -> acc (Let (GVar n, v, z)))
-              f
-              (fun x -> x)
-          in
-          f (Ans(If (c, x, y, e1, e2, cc, d)))
+            let f = !tmp in
+            let tmpv = !var_map in
+            let _ = clear () in
+            let e1 = schedule e1 in
+            let _ = clear () in
+            let e2 = schedule e2 in
+            let _ = clear () in
+            let _ = var_map := tmpv in
+            let f =
+              List.fold_right
+                (fun (n, v) acc z -> acc (Let (GVar n, v, z)))
+                f
+                (fun x -> x)
+            in
+            f (Ans (If (c, x, y, e1, e2, cc, d)))
         | _ ->
             let f =
-            List.fold_right
-              (fun (n, v) acc z -> acc (Let (GVar n, v, z)))
-              !tmp 
-              (fun x -> x) in
+              List.fold_right
+                (fun (n, v) acc z -> acc (Let (GVar n, v, z)))
+                !tmp
+                (fun x -> x)
+            in
             let e = f (Ans u) in
             let _ = clear () in
             e )
@@ -201,7 +202,7 @@ let resource_saving x ready arr =
   for i = 0 to Array.length arr - 1 do
     let name, u = arr.(i) in
     for j = i + 1 to Array.length arr - 1 do
-      let (_,u) = arr.(j) in
+      let _, u = arr.(j) in
       let from = extract u in
       if List.exists (fun x -> name = x) from then
         memo.(j) <- max (memo.(i) + 1) memo.(j)
@@ -209,8 +210,9 @@ let resource_saving x ready arr =
     done
   done ;
   let v = -memo.(idx x arr) in
-  let _ = Printf.printf "%s %d\n" x v in v
- 
+  let _ = Printf.printf "%s %d\n" x v in
+  v
+
 let execution_time x ready arr =
   let memo = Array.make (Array.length arr) 0 in
   for l = 0 to Array.length arr - 1 do
@@ -222,17 +224,17 @@ let execution_time x ready arr =
         (fun x ->
           let y = idx_opt x arr in
           match y with
-          | Some(y) -> 
-          let _ = memo.(y) <- max (get_latency u + memo.(i)) memo.(y) in
-          ()
-          | None -> ()
-           )
+          | Some y ->
+              let _ = memo.(y) <- max (get_latency u + memo.(i)) memo.(y) in
+              ()
+          | None -> () )
         from
     in
     ()
   done ;
   let v = -memo.(idx x arr) in
-  let _ = Printf.printf "nyan %s %d\n" x v in v 
+  let _ = Printf.printf "nyan %s %d\n" x v in
+  v
 
 let f = g execution_time
 
